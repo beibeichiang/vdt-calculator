@@ -1,0 +1,21 @@
+{
+    "name": "VDT Calculator",
+    "short_name": "VDT Calc",
+    "description": "A dynamic calculator for Volume Doubling Time of lung nodules.",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#3498db",
+    "icons": [
+        {
+            "src": "https://placehold.co/192x192/3498db/ffffff?text=VDT",
+            "type": "image/png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "https://placehold.co/512x512/3498db/ffffff?text=VDT",
+            "type": "image/png",
+            "sizes": "512x512"
+        }
+    ]
+}
