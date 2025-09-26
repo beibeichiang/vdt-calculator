@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic VDT Calculator - Table View</title>
-    <!-- Web App Manifest for PWA capabilities -->
-    <link rel="manifest" href="manifest.json">
     <!-- Add Chart.js libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -27,12 +25,22 @@
             padding: 30px;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        .header-container {
+            text-align: center;
+            margin-bottom: 20px;
         }
         h1 {
-            text-align: center;
             color: #2c3e50;
-            margin-bottom: 20px;
             font-weight: 600;
+            margin: 0;
+            display: inline-block;
+        }
+        .header-container .export-btn {
+            position: absolute;
+            top: 30px;
+            right: 30px;
         }
         .patient-id-container {
             display: flex;
@@ -70,6 +78,13 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
+        }
+        .compact-btn {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            font-size: 1.8em;
+            line-height: 40px;
         }
         .add-row-btn { background-color: #27ae60; }
         .remove-row-btn { background-color: #e74c3c; }
@@ -121,14 +136,13 @@
         }
         .total-result-box { text-align: center; }
         .total-result-box .label { font-size: 1em; font-weight: 600; color: #31708f; margin-bottom: 8px; }
-        .total-result-box .value { font-size: 1.4em; font-weight: bold; }
-
+        .total-result-box .value { font-size: 1.4em; }
+        
         .main-actions { display: flex; gap: 10px; flex-wrap: wrap; }
         .save-btn { background-color: #9b59b6; }
-        .export-btn { background-color: #3498db; }
         .clear-btn { background-color: #f39c12; }
         .export-new-btn { background-color: #8e44ad; }
-        .export-all-btn { background-color: #16a085; }
+        .export-btn { background-color: #16a085; }
 
 
         .chart-container {
@@ -147,12 +161,16 @@
         .vdt-fast-shrinking { color: #337ab7; }
         .vdt-stable-or-slow { color: #2c3e50; }
         .extra-info { font-size: 0.8em; font-weight: normal; color: #555; display: block; margin-top: 4px; }
+        .result-cell strong, .total-result-box strong { font-weight: 900; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Dynamic VDT Calculator</h1>
+        <div class="header-container">
+            <h1>Dynamic VDT Calculator</h1>
+            <button class="control-btn export-btn" id="export-btn">Export CSV (All)</button>
+        </div>
         
         <div class="patient-id-container">
             <label for="patient-id">Patient ID:</label>
@@ -161,8 +179,8 @@
 
         <div class="table-controls">
             <div class="left-controls">
-                <button class="control-btn add-row-btn" id="add-row-btn">+ Add Row</button>
-                <button class="control-btn remove-row-btn" id="remove-row-btn">- Remove Row</button>
+                <button class="control-btn add-row-btn compact-btn" id="add-row-btn">+</button>
+                <button class="control-btn remove-row-btn compact-btn" id="remove-row-btn">-</button>
                 <div class="sort-control">
                     <label for="sort-order">Order:</label>
                     <select id="sort-order">
@@ -176,11 +194,9 @@
                 </div>
             </div>
             <div class="main-actions">
-                <button class="control-btn save-btn" id="save-btn">Save Session</button>
-                <button class="control-btn clear-btn" id="clear-btn">Clear All</button>
-                <button class="control-btn export-btn" id="export-btn">Export Current</button>
-                <button class="control-btn export-all-btn" id="export-all-btn">Export All Data</button>
-                <button class="control-btn export-new-btn" id="export-new-btn">Save, Export & New</button>
+                <button class="control-btn clear-btn" id="clear-btn">Clear</button>
+                <button class="control-btn save-btn" id="save-btn">Save</button>
+                <button class="control-btn export-new-btn" id="export-new-btn">Save & New</button>
             </div>
         </div>
 
@@ -190,8 +206,8 @@
                     <tr>
                         <th>Scan #</th>
                         <th>Scan Date</th>
-                        <th>Solid Volume (mm³)</th>
-                        <th>Solid Core Volume (mm³)</th>
+                        <th>Solid (mm³)</th>
+                        <th>Solid core (mm³)</th>
                         <th>VDT</th>
                         <th>VDTcore</th>
                     </tr>
@@ -219,7 +235,6 @@
         const clearBtn = document.getElementById('clear-btn');
         const saveBtn = document.getElementById('save-btn');
         const exportBtn = document.getElementById('export-btn');
-        const exportAllBtn = document.getElementById('export-all-btn');
         const exportNewBtn = document.getElementById('export-new-btn');
         const patientIdInput = document.getElementById('patient-id');
         const totalResultsContainer = document.getElementById('total-results-container');
@@ -334,7 +349,6 @@
 
         function saveAndNew() {
             if(saveData()) {
-                exportToCSV(false); // Export current patient
                 clearAll();
             }
         }
@@ -435,7 +449,7 @@
             if (vdt > 0 && vdt <= 400) className = 'vdt-positive';
             else if (vdt > 400 && vdt <= 600) className = 'vdt-indeterminate';
             else if (vdt < 0 && vdt >= -400) className = 'vdt-fast-shrinking';
-            return { html: `<span class="${className}">${displayValue}</span>`, value: displayValue, timeDiff: timeDiff.toFixed(0), volumeChange: volumeChange.toFixed(1) };
+            return { html: `<strong><span class="${className}">${displayValue}d</span></strong>`, value: displayValue, timeDiff: timeDiff.toFixed(0), volumeChange: volumeChange.toFixed(1) };
         }
 
         function calculateAll() {
@@ -485,10 +499,10 @@
                 
                 totalResultsContainer.innerHTML = `
                     <div class="total-result-box">
-                        <div class="label">Total VDT (Solid)</div><div class="value">${createResultHTML(totalSolidResult)}</div>
+                        <div class="label">Total VDT</div><div class="value">${createResultHTML(totalSolidResult)}</div>
                     </div>
                     <div class="total-result-box">
-                        <div class="label">Total VDT (Core)</div><div class="value">${createResultHTML(totalCoreResult)}</div>
+                        <div class="label">Total VDTcore</div><div class="value">${createResultHTML(totalCoreResult)}</div>
                     </div>`;
             } else {
                 totalResultsContainer.innerHTML = '';
@@ -497,12 +511,126 @@
         }
 
         function renderChart(data) {
-            // Chart rendering logic is complete and correct
+            if (volumeChart) {
+                volumeChart.destroy();
+            }
+
+            const ctx = chartCanvas.getContext('2d');
+            const isNewNodule = newNoduleCheckbox.checked;
+            
+            let chartData = [...data];
+            if (isNewNodule && chartData.length > 0) {
+                 chartData[0] = { ...chartData[0], solid: 15, core: 15 };
+            }
+
+            const validDataPoints = chartData.filter(d => d.dateObj && (!isNaN(d.solid) || !isNaN(d.core)));
+
+            if (validDataPoints.length < 2) {
+                ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+                return;
+            }
+            
+            const annotations = [];
+            for (let i = 1; i < chartData.length; i++) {
+                const prev = chartData[i-1];
+                const curr = chartData[i];
+                const isMaxCalc = (i === 1 && isNewNodule);
+                const vdtLabel = isMaxCalc ? 'VDTmax' : 'VDT';
+                
+                const solidResult = calculateSingleVDT(curr.solid, prev.solid, (curr.dateObj - prev.dateObj) / (1000 * 60 * 60 * 24));
+                if (solidResult.value !== null && !isNaN(prev.solid) && !isNaN(curr.solid)) {
+                    const midX = (prev.dateObj.getTime() + curr.dateObj.getTime()) / 2;
+                    const midY = (prev.solid + curr.solid) / 2;
+                    const annotationText = [`${solidResult.timeDiff}d, ${solidResult.volumeChange > 0 ? '+' : ''}${solidResult.volumeChange}%`, `${vdtLabel}: ${solidResult.value}`];
+                    annotations.push({
+                        type: 'label', xValue: midX, yValue: midY, content: annotationText,
+                        backgroundColor: 'rgba(54, 162, 235, 0.8)', font: { size: 10 }, color: 'white',
+                        yAdjust: -15, xAdjust: -25, borderRadius: 4, padding: 4
+                    });
+                }
+                
+                const coreResult = calculateSingleVDT(curr.core, prev.core, (curr.dateObj - prev.dateObj) / (1000 * 60 * 60 * 24));
+                 if (coreResult.value !== null && !isNaN(prev.core) && !isNaN(curr.core)) {
+                    const midX = (prev.dateObj.getTime() + curr.dateObj.getTime()) / 2;
+                    const midY = (prev.core + curr.core) / 2;
+                     const annotationText = [`${coreResult.timeDiff}d, ${coreResult.volumeChange > 0 ? '+' : ''}${coreResult.volumeChange}%`, `${vdtLabel}: ${coreResult.value}`];
+                    annotations.push({
+                        type: 'label', xValue: midX, yValue: midY, content: annotationText,
+                        backgroundColor: 'rgba(255, 99, 132, 0.8)', font: { size: 10 }, color: 'white',
+                        yAdjust: 15, xAdjust: 25, borderRadius: 4, padding: 4
+                    });
+                }
+            }
+            
+            const allVolumes = chartData.flatMap(d => [d.solid, d.core]).filter(v => !isNaN(v) && v !== null);
+            let yMin = Math.min(...allVolumes);
+            let yMax = Math.max(...allVolumes);
+            const padding = (yMax - yMin) * 0.2 || 10;
+            yMin = yMin > padding ? yMin - padding : 0;
+            yMax = yMax + padding;
+
+            volumeChart = new Chart(chartCanvas, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Solid Volume',
+                            data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.solid) ? null : d.solid })),
+                            borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.5)', tension: 0.1,
+                            datalabels: {
+                                align: 'top',
+                                formatter: (value, context) => {
+                                    const index = context.dataIndex;
+                                    const scanNumber = index === chartData.length - 1 ? 'Scan 0' : `Scan -${chartData.length - 1 - index}`;
+                                    const volumeText = (isNewNodule && index === 0) ? "15.0 mm³ (Assumed)" : `${value.y.toFixed(1)} mm³`;
+                                    return `${scanNumber}\n${volumeText}`;
+                                }
+                            }
+                        },
+                        {
+                            label: 'Solid Core Volume',
+                            data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.core) ? null : d.core })),
+                            borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)', tension: 0.1,
+                             datalabels: {
+                                align: 'bottom',
+                                formatter: (value, context) => {
+                                    const index = context.dataIndex;
+                                    const scanNumber = index === chartData.length - 1 ? 'Scan 0' : `Scan -${chartData.length - 1 - index}`;
+                                    const volumeText = (isNewNodule && index === 0) ? "15.0 mm³ (Assumed)" : `${value.y.toFixed(1)} mm³`;
+                                    return `${scanNumber}\n${volumeText}`;
+                                }
+                            }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Volume Change Over Time' },
+                        datalabels: {
+                            backgroundColor: '#fff', borderRadius: 4, borderWidth: 1, borderColor: '#ccc',
+                            padding: 4, font: { size: 10, weight: 'bold' }, textAlign: 'center'
+                        },
+                        annotation: { annotations: annotations }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'day', tooltipFormat: 'yyyy-MM-dd', displayFormats: { day: 'yyyy-MM-dd' } },
+                            ticks: { source: 'data' },
+                            title: { display: true, text: 'Date' }
+                        },
+                        y: { min: yMin, max: yMax, title: { display: true, text: 'Volume (mm³)' } }
+                    }
+                }
+            });
         }
-        
-        function generateCSV(isExportAll) {
+
+        function exportToCSV(isExportAll = false) {
             let csvContent = "data:text/csv;charset=utf-8,";
             let filename = "VDT_results.csv";
+            
+            const headers = ['PatientID', 'Scan_Order', 'Scan_Date', 'Solid_Volume', 'Solid_Core_Volume', 'Interval_VDT_Solid', 'Interval_Days_Solid', 'Interval_Change_Solid_%', 'Interval_VDT_Core', 'Interval_Days_Core', 'Interval_Change_Core_%'];
             
             const processPatientData = (patientId, patientTableData, isNewNodule) => {
                 let patientCsvString = "";
@@ -537,7 +665,6 @@
                 return patientCsvString;
             };
 
-            const headers = ['PatientID', 'Scan_Order', 'Scan_Date', 'Solid_Volume', 'Solid_Core_Volume', 'Interval_VDT_Solid', 'Interval_Days_Solid', 'Interval_Change_Solid_%', 'Interval_VDT_Core', 'Interval_Days_Core', 'Interval_Change_Core_%'];
             csvContent += headers.join(',') + '\r\n';
 
             if (isExportAll) {
@@ -565,9 +692,7 @@
             link.click();
             document.body.removeChild(link);
         }
-
-        const exportToCSV = (isExportAll = false) => generateCSV(isExportAll);
-
+        
         // --- Init ---
         function initializeApp() {
             tableData = [];
@@ -583,26 +708,14 @@
             removeRowBtn.addEventListener('click', removeRow);
             clearBtn.addEventListener('click', clearAll);
             saveBtn.addEventListener('click', saveData);
-            exportBtn.addEventListener('click', () => exportToCSV(false));
-            exportAllBtn.addEventListener('click', () => exportToCSV(true));
+            exportBtn.addEventListener('click', () => exportToCSV(true));
             exportNewBtn.addEventListener('click', saveAndNew);
             patientIdInput.addEventListener('blur', loadData);
             sortOrderSelect.addEventListener('change', renderTable);
             newNoduleCheckbox.addEventListener('change', calculateAll);
-            
-            // Service Worker Registration for Offline Use
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js')
-                .then(registration => {
-                    console.log('Service Worker registered with scope:', registration.scope);
-                }).catch(error => {
-                    console.log('Service Worker registration failed:', error);
-                });
-            }
 
             initializeApp();
         };
-
     </script>
 </body>
 </html>
