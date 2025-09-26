@@ -64,6 +64,7 @@
             display: flex;
             gap: 15px;
             align-items: center;
+            flex-wrap: wrap;
         }
         .control-btn {
             display: flex;
@@ -192,6 +193,10 @@
                     <input type="checkbox" id="new-nodule-checkbox">
                     <label for="new-nodule-checkbox">New Nodule (VDTmax)</label>
                 </div>
+                <div class="new-nodule-control">
+                    <input type="checkbox" id="log-scale-checkbox">
+                    <label for="log-scale-checkbox">Log Scale (Y-Axis)</label>
+                </div>
             </div>
             <div class="main-actions">
                 <button class="control-btn clear-btn" id="clear-btn">Clear</button>
@@ -240,6 +245,7 @@
         const totalResultsContainer = document.getElementById('total-results-container');
         const sortOrderSelect = document.getElementById('sort-order');
         const newNoduleCheckbox = document.getElementById('new-nodule-checkbox');
+        const logScaleCheckbox = document.getElementById('log-scale-checkbox');
         const chartCanvas = document.getElementById('volumeChart');
         
         let uniqueRowId = 0;
@@ -307,6 +313,7 @@
             patientIdInput.value = '';
             tableData = [];
             newNoduleCheckbox.checked = false;
+            logScaleCheckbox.checked = false;
             initializeApp();
         }
 
@@ -319,7 +326,8 @@
             }
             const dataToSave = {
                 tableData: tableData,
-                isNewNodule: newNoduleCheckbox.checked
+                isNewNodule: newNoduleCheckbox.checked,
+                isLogScale: logScaleCheckbox.checked
             };
             localStorage.setItem(`vdt-calc-${patientId}`, JSON.stringify(dataToSave));
             
@@ -343,6 +351,7 @@
                 tableData = savedData.tableData;
                 uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d => d.id)) + 1 : 0;
                 newNoduleCheckbox.checked = savedData.isNewNodule;
+                logScaleCheckbox.checked = savedData.isLogScale || false;
                 renderTable();
             }
         }
@@ -517,6 +526,7 @@
 
             const ctx = chartCanvas.getContext('2d');
             const isNewNodule = newNoduleCheckbox.checked;
+            const useLogScale = logScaleCheckbox.checked;
             
             let chartData = [...data];
             if (isNewNodule && chartData.length > 0) {
@@ -535,13 +545,14 @@
                 const prev = chartData[i-1];
                 const curr = chartData[i];
                 const isMaxCalc = (i === 1 && isNewNodule);
-                const vdtLabel = isMaxCalc ? 'VDTmax' : 'VDT';
+                const solidVdtLabel = isMaxCalc ? 'VDTmax' : 'VDT';
+                const coreVdtLabel = isMaxCalc ? 'VDTcore(max)' : 'VDTcore';
                 
                 const solidResult = calculateSingleVDT(curr.solid, prev.solid, (curr.dateObj - prev.dateObj) / (1000 * 60 * 60 * 24));
                 if (solidResult.value !== null && !isNaN(prev.solid) && !isNaN(curr.solid)) {
                     const midX = (prev.dateObj.getTime() + curr.dateObj.getTime()) / 2;
                     const midY = (prev.solid + curr.solid) / 2;
-                    const annotationText = [`${solidResult.timeDiff}d, ${solidResult.volumeChange > 0 ? '+' : ''}${solidResult.volumeChange}%`, `${vdtLabel}: ${solidResult.value}`];
+                    const annotationText = [`${solidResult.timeDiff}d, ${solidResult.volumeChange > 0 ? '+' : ''}${solidResult.volumeChange}%`, `${solidVdtLabel}: ${solidResult.value}d`];
                     annotations.push({
                         type: 'label', xValue: midX, yValue: midY, content: annotationText,
                         backgroundColor: 'rgba(54, 162, 235, 0.8)', font: { size: 10 }, color: 'white',
@@ -553,7 +564,7 @@
                  if (coreResult.value !== null && !isNaN(prev.core) && !isNaN(curr.core)) {
                     const midX = (prev.dateObj.getTime() + curr.dateObj.getTime()) / 2;
                     const midY = (prev.core + curr.core) / 2;
-                     const annotationText = [`${coreResult.timeDiff}d, ${coreResult.volumeChange > 0 ? '+' : ''}${coreResult.volumeChange}%`, `${vdtLabel}: ${coreResult.value}`];
+                     const annotationText = [`${coreResult.timeDiff}d, ${coreResult.volumeChange > 0 ? '+' : ''}${coreResult.volumeChange}%`, `${coreVdtLabel}: ${coreResult.value}d`];
                     annotations.push({
                         type: 'label', xValue: midX, yValue: midY, content: annotationText,
                         backgroundColor: 'rgba(255, 99, 132, 0.8)', font: { size: 10 }, color: 'white',
@@ -574,7 +585,7 @@
                 data: {
                     datasets: [
                         {
-                            label: 'Solid Volume',
+                            label: 'Solid',
                             data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.solid) ? null : d.solid })),
                             borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.5)', tension: 0.1,
                             datalabels: {
@@ -588,7 +599,7 @@
                             }
                         },
                         {
-                            label: 'Solid Core Volume',
+                            label: 'Solid core',
                             data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.core) ? null : d.core })),
                             borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)', tension: 0.1,
                              datalabels: {
@@ -620,7 +631,12 @@
                             ticks: { source: 'data' },
                             title: { display: true, text: 'Date' }
                         },
-                        y: { min: yMin, max: yMax, title: { display: true, text: 'Volume (mm³)' } }
+                        y: { 
+                            type: useLogScale ? 'logarithmic' : 'linear',
+                            min: useLogScale ? (yMin > 0 ? yMin*0.8 : 1) : yMin,
+                            max: yMax, 
+                            title: { display: true, text: 'Volume (mm³)' } 
+                        }
                     }
                 }
             });
@@ -713,6 +729,7 @@
             patientIdInput.addEventListener('blur', loadData);
             sortOrderSelect.addEventListener('change', renderTable);
             newNoduleCheckbox.addEventListener('change', calculateAll);
+            logScaleCheckbox.addEventListener('change', calculateAll);
 
             initializeApp();
         };
