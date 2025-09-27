@@ -922,9 +922,9 @@
                 const numCols = numScans > 1 ? numScans * 2 - 1 : 1;
                 
                 // --- Define Styles ---
-                const tableStyle = `font-family: Arial; font-size: 11pt; border-collapse: collapse; border-spacing: 0; border: 1px solid black; background-color: transparent; table-layout: fixed; width: ${numCols * 100}px;`;
-                const cellStyle = `color: white; background-color: transparent; border: 1px solid black; padding: 0.01in; text-align: center; height: 1em; line-height: 1.1;`;
-                const emptyCellStyle = `border: 1px solid black; padding: 0.01in; background-color: transparent;`;
+                const tableStyle = `font-family: Arial; font-size: 11pt; border-collapse: collapse; border-spacing: 0; border: none; background-color: transparent; table-layout: fixed; width: ${numCols * 100}px;`;
+                const cellStyle = `color: white; background-color: transparent; border: none; padding: 0.01in; text-align: center; height: 1em; line-height: 1.1;`;
+                const emptyCellStyle = `border: none; padding: 0.01in; background-color: transparent;`;
 
                 let html = `<table style="${tableStyle}">`;
 
