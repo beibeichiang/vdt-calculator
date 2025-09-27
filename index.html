@@ -833,7 +833,7 @@
                             },
                             y: { 
                                 type: useLogScale ? 'logarithmic' : 'linear',
-                                min: useLogScale ? (yMin > 0 ? yMin*0.8 : 1) : yMin,
+                                min: yMin,
                                 max: yMax, 
                                 title: { display: true, text: 'Volume (mm³)' } 
                             }
@@ -913,78 +913,126 @@
                 const isNewNodule = newNoduleCheckbox.checked;
                 const dataForCalc = tableData
                     .map(d => ({...d, dateObj: parseDateString(d.date), solid: parseFloat(d.solid), core: parseFloat(d.core) }))
-                    .filter(d => d.dateObj)
-                    .sort((a, b) => b.dateObj - a.dateObj);
+                    .filter(d => d.dateObj) // FIX: Include all rows that have a valid date, even if volumes are empty.
+                    .sort((a, b) => b.dateObj - a.dateObj); // Sort newest first for display
                 
                 if (dataForCalc.length < 1) return;
 
-                let textLines = [];
+                const numScans = dataForCalc.length;
+                const numCols = numScans > 1 ? numScans * 2 - 1 : 1;
                 
-                textLines.push(dataForCalc.map((scan, i) => `Scan ${i === 0 ? '0' : `-${i}`}`).join('\t\t'));
+                // --- Define Styles ---
+                const tableStyle = `font-family: Arial; font-size: 11pt; border-collapse: collapse; border-spacing: 0; border: 1px solid black; background-color: transparent; table-layout: fixed; width: ${numCols * 100}px;`;
+                const cellStyle = `color: white; background-color: transparent; border: 1px solid black; padding: 0.01in; text-align: center; height: 1em; line-height: 1.1;`;
+                const emptyCellStyle = `border: 1px solid black; padding: 0.01in; background-color: transparent;`;
 
-                textLines.push(dataForCalc.map((scan, i) => {
-                    const vol = type === 'solid' ? scan.solid : scan.core;
-                    const chronoSorted = [...dataForCalc].sort((a, b) => a.dateObj - b.dateObj);
-                    const isOldestScan = scan.id === chronoSorted[0].id;
-                    if (isNewNodule && isOldestScan) return `15.0 mm³ (A)`;
-                    return isNaN(vol) ? 'N/A' : `${vol.toFixed(1)} mm³`;
-                }).join('\t\t'));
+                let html = `<table style="${tableStyle}">`;
 
-                textLines.push('');
-
-                if (dataForCalc.length > 1) {
-                    let vdtTexts = [];
-                    for (let i = 0; i < dataForCalc.length - 1; i++) {
-                        const currScan = dataForCalc[i];
-                        const prevScan = dataForCalc[i+1];
-                        
-                        const chronoSorted = [...dataForCalc].sort((a, b) => a.dateObj - b.dateObj);
-                        const isFirstInterval = prevScan.id === chronoSorted[0].id && currScan.id === chronoSorted[1].id;
-                        const isMaxCalc = isFirstInterval && isNewNodule;
-                        
-                        const currVol = type === 'solid' ? currScan.solid : currScan.core;
-                        const prevVol = isMaxCalc ? 15 : (type === 'solid' ? prevScan.solid : prevScan.core);
-                        const timeDiff = (currScan.dateObj - prevScan.dateObj) / (1000 * 60 * 60 * 24);
-                        const result = calculateSingleVDT(currVol, prevVol, timeDiff);
-                        
-                        const label = type === 'solid' ? (isMaxCalc ? 'VDTmax' : 'VDT') : (isMaxCalc ? 'VDTcore(max)' : 'VDTcore');
-                        vdtTexts.push(`${label}: ${result.value || 'N/A'}d`);
-                    }
-                    textLines.push('\t' + vdtTexts.join('\t\t'));
-                    textLines.push('');
-                }
-
-                if (dataForCalc.length > 1) {
-                    const chronoSorted = [...dataForCalc].sort((a, b) => a.dateObj - b.dateObj);
-                    const firstForTotal = (isNewNodule && chronoSorted.length > 1) ? chronoSorted[1] : chronoSorted[0];
-                    const last = chronoSorted[chronoSorted.length - 1];
+                // --- Row 1: Total VDT ---
+                if (numScans > 1) {
+                    const chronoSortedTotal = [...dataForCalc].sort((a, b) => a.dateObj - b.dateObj);
+                    const firstForTotal = (isNewNodule && chronoSortedTotal.length > 1) ? chronoSortedTotal[1] : chronoSortedTotal[0];
+                    const last = chronoSortedTotal[chronoSortedTotal.length - 1];
                     const totalTimeDiff = (last.dateObj - firstForTotal.dateObj) / (1000 * 60 * 60 * 24);
                     const vol1 = type === 'solid' ? last.solid : last.core;
                     const vol2 = type === 'solid' ? firstForTotal.solid : firstForTotal.core;
                     const result = calculateSingleVDT(vol1, vol2, totalTimeDiff);
                     
                     const label = type === 'solid' ? 'Total VDT' : 'Total VDTcore';
-                    const totalTabs = '\t'.repeat(Math.floor((dataForCalc.length -1) / 2));
-                    textLines.push(`${totalTabs}${label}: ${result.value || 'N/A'}d`);
+                    html += `<tr><td colspan="${numCols}" style="${cellStyle}">${label}: ${result.value || 'N/A'}d</td></tr>`;
                 }
+
+                // --- Row 2 & 3: Scans and Volumes with separator columns ---
+                let row2_scans = `<tr>`;
+                let row3_volumes = `<tr>`;
+                const chronoSorted = [...dataForCalc].sort((a, b) => a.dateObj - b.dateObj);
+
+                dataForCalc.forEach((scan, i) => {
+                    const scanNumber = `Scan ${i === 0 ? '0' : `-${i}`}`;
+                    row2_scans += `<td style="${cellStyle}">${scanNumber}</td>`;
+                    
+                    const vol = type === 'solid' ? scan.solid : scan.core;
+                    const isOldestScan = scan.id === chronoSorted[0].id;
+                    const volText = (isNewNodule && isOldestScan) ? `15 mm³ (A)` : (isNaN(vol) ? 'N/A' : `${vol.toFixed(0)} mm³`);
+                    row3_volumes += `<td style="${cellStyle}">${volText}</td>`;
+
+                    if (i < numScans - 1) {
+                        row2_scans += `<td style="${emptyCellStyle}">&nbsp;</td>`;
+                        row3_volumes += `<td style="${emptyCellStyle}">&nbsp;</td>`;
+                    }
+                });
+                html += row2_scans + `</tr>` + row3_volumes + `</tr>`;
+
+                // --- Row 4: Interval VDTs in separator columns ---
+                if (numScans > 1) {
+                    let row4_intervals = `<tr>`;
+                    for (let i = 0; i < numScans - 1; i++) {
+                        const currScan = dataForCalc[i]; // Newer scan
+                        const prevScan = dataForCalc[i + 1]; // Older scan
+                        
+                        row4_intervals += `<td style="${emptyCellStyle}">&nbsp;</td>`;
+
+                        const isFirstChronologicalInterval = (prevScan.id === chronoSorted[0].id && currScan.id === chronoSorted[1].id);
+                        const isMaxCalc = isFirstChronologicalInterval && isNewNodule;
+                        
+                        const currVol = type === 'solid' ? currScan.solid : currScan.core;
+                        const prevVol = isMaxCalc ? 15 : (type === 'solid' ? prevScan.solid : prevScan.core);
+                        const timeDiff = (currScan.dateObj - prevScan.dateObj) / (1000 * 60 * 60 * 24);
+                        const result = calculateSingleVDT(currVol, prevVol, timeDiff);
+                        
+                        const label = type === 'solid' ? 'VDT' : 'VDTcore';
+                        const maxLabel = isMaxCalc ? '(max)' : '';
+
+                        row4_intervals += `<td style="${cellStyle}">${label}${maxLabel}: ${result.value || 'N/A'}d</td>`;
+                    }
+                    row4_intervals += `<td style="${emptyCellStyle}">&nbsp;</td>`;
+                    html += row4_intervals + `</tr>`;
+                }
+
+
+                html += '</table>';
                 
-                const finalString = textLines.join('\n');
-
-                const textarea = document.createElement('textarea');
-                textarea.value = finalString;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-
                 const targetButton = event.target;
                 const originalText = targetButton.textContent;
-                targetButton.textContent = 'Copied!';
-                targetButton.style.backgroundColor = '#27ae60';
-                setTimeout(() => {
-                    targetButton.textContent = originalText;
-                    targetButton.style.backgroundColor = '#3498db';
-                }, 2000);
+
+                function updateButtonOnSuccess() {
+                    targetButton.textContent = 'Copied!';
+                    targetButton.style.backgroundColor = '#27ae60';
+                    setTimeout(() => {
+                        targetButton.textContent = originalText;
+                        targetButton.style.backgroundColor = '#3498db';
+                    }, 2000);
+                }
+                
+                // Fallback method for copying to clipboard
+                const tempDiv = document.createElement('div');
+                tempDiv.style.position = 'absolute';
+                tempDiv.style.left = '-9999px'; // Move it off-screen
+                tempDiv.innerHTML = html;
+                document.body.appendChild(tempDiv);
+                
+                let success = false;
+                try {
+                    const range = document.createRange();
+                    range.selectNode(tempDiv);
+                    window.getSelection().removeAllRanges(); // Clear previous selections
+                    window.getSelection().addRange(range); // Select the content
+                    
+                    success = document.execCommand('copy');
+                    
+                    window.getSelection().removeAllRanges(); // Deselect
+                } catch (err) {
+                    console.error('Fallback copy method failed: ', err);
+                }
+                
+                document.body.removeChild(tempDiv);
+
+                if (success) {
+                    updateButtonOnSuccess();
+                } else {
+                    console.error('Failed to copy: execCommand returned false or threw an error.');
+                    alert('Failed to copy report.');
+                }
             }
             
             // --- Init ---
@@ -1005,6 +1053,11 @@
             exportBtn.addEventListener('click', () => exportToCSV(true));
             exportNewBtn.addEventListener('click', saveAndNew);
             patientIdInput.addEventListener('blur', loadData);
+            patientIdInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    loadData();
+                }
+            });
             sortOrderSelect.addEventListener('change', renderTable);
             newNoduleCheckbox.addEventListener('change', calculateAll);
             predictionCheckbox.addEventListener('change', calculateAll);
