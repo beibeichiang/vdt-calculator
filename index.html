@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VDT Calculator - Table View</title>
+    <title>Dynamic VDT Calculator - Table View</title>
     <!-- Add Chart.js libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -127,7 +127,7 @@
             text-align: center;
         }
         
-        .total-results-container {
+        .total-results-container, .prediction-results-container {
             display: flex;
             justify-content: space-around;
             padding: 20px;
@@ -135,15 +135,22 @@
             border-radius: 8px;
             margin-top: 20px;
         }
-        .total-result-box { text-align: center; }
-        .total-result-box .label { font-size: 1em; font-weight: 600; color: #31708f; margin-bottom: 8px; }
+        .prediction-results-container {
+            background-color: #fef9e7;
+            border: 1px solid #f1c40f;
+        }
+        .total-result-box, .prediction-result-box { text-align: center; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;}
+        .total-result-box .label, .prediction-result-box .label { font-size: 1em; font-weight: 600; color: #31708f; margin-bottom: 0; }
+        .prediction-result-box .label { color: #876404; }
         .total-result-box .value { font-size: 1.4em; }
+        .prediction-result-box .value { font-size: 1.2em; font-weight: bold; color: #333; }
         
         .main-actions { display: flex; gap: 10px; flex-wrap: wrap; }
         .save-btn { background-color: #9b59b6; }
         .clear-btn { background-color: #f39c12; }
         .export-new-btn { background-color: #8e44ad; }
         .export-btn { background-color: #16a085; }
+        .copy-btn { background-color: #3498db; padding: 5px 15px; height: auto; font-size: 0.9em; width: auto; }
 
 
         .chart-container {
@@ -163,13 +170,14 @@
         .vdt-stable-or-slow { color: #2c3e50; }
         .extra-info { font-size: 0.8em; font-weight: normal; color: #555; display: block; margin-top: 4px; }
         .result-cell strong, .total-result-box strong { font-weight: 900; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <div class="header-container">
-            <h1>VDT Calculator</h1>
+            <h1>Dynamic VDT Calculator</h1>
             <button class="control-btn export-btn" id="export-btn">Export CSV (All)</button>
         </div>
         
@@ -196,6 +204,10 @@
                 <div class="new-nodule-control">
                     <input type="checkbox" id="log-scale-checkbox">
                     <label for="log-scale-checkbox">Log Scale (Y-Axis)</label>
+                </div>
+                <div class="new-nodule-control">
+                    <input type="checkbox" id="prediction-checkbox">
+                    <label for="prediction-checkbox">Prediction</label>
                 </div>
             </div>
             <div class="main-actions">
@@ -227,499 +239,765 @@
              <!-- Total VDT results will be displayed here -->
         </div>
 
+        <div class="prediction-results-container hidden" id="prediction-results-container">
+            <!-- Prediction results will be displayed here -->
+        </div>
+
         <div class="chart-container">
             <canvas id="volumeChart"></canvas>
         </div>
     </div>
 
     <script>
-        // --- Global variables ---
-        const tableBody = document.getElementById('table-body');
-        const addRowBtn = document.getElementById('add-row-btn');
-        const removeRowBtn = document.getElementById('remove-row-btn');
-        const clearBtn = document.getElementById('clear-btn');
-        const saveBtn = document.getElementById('save-btn');
-        const exportBtn = document.getElementById('export-btn');
-        const exportNewBtn = document.getElementById('export-new-btn');
-        const patientIdInput = document.getElementById('patient-id');
-        const totalResultsContainer = document.getElementById('total-results-container');
-        const sortOrderSelect = document.getElementById('sort-order');
-        const newNoduleCheckbox = document.getElementById('new-nodule-checkbox');
-        const logScaleCheckbox = document.getElementById('log-scale-checkbox');
-        const chartCanvas = document.getElementById('volumeChart');
-        
-        let uniqueRowId = 0;
-        let tableData = [];
-        let isPasting = false;
-        let volumeChart = null;
-
-        // --- Core Functions (renderTable, updateScanNumbers, etc.) ---
-        function renderTable() {
-            const sortOrder = sortOrderSelect.value;
-            const sortedData = [...tableData].sort((a, b) => {
-                const dateA = parseDateString(a.date) || 0;
-                const dateB = parseDateString(b.date) || 0;
-                if (sortOrder === 'newest_first') return dateB - dateA;
-                return dateA - dateB;
-            });
-
-            tableBody.innerHTML = ''; // Clear table
-            sortedData.forEach(dataRow => {
-                const tr = document.createElement('tr');
-                tr.dataset.id = dataRow.id;
-                tr.innerHTML = `
-                    <td class="scan-number">-</td>
-                    <td><input type="text" class="date-input" value="${dataRow.date}"></td>
-                    <td><input type="number" class="solid-input" value="${dataRow.solid}"></td>
-                    <td><input type="number" class="core-input" value="${dataRow.core}"></td>
-                    <td class="result-cell vdt-solid-result">-</td>
-                    <td class="result-cell vdt-core-result">-</td>
-                `;
-                tableBody.appendChild(tr);
-            });
-
-            bindEventListeners();
-            updateScanNumbers();
-            calculateAll();
-        }
-
-        function updateScanNumbers() {
-            const sortOrder = sortOrderSelect.value;
-            const rows = tableBody.querySelectorAll('tr');
-            rows.forEach((row, i) => {
-                const scanNumCell = row.querySelector('.scan-number');
-                if (sortOrder === 'newest_first') {
-                    scanNumCell.textContent = i === 0 ? 'Scan 0 (Current)' : `Scan -${i}`;
-                } else {
-                    scanNumCell.textContent = `Scan -${rows.length - 1 - i}`;
-                    if (i === rows.length - 1) scanNumCell.textContent = 'Scan 0 (Current)';
-                }
-            });
-        }
-        
-        function updateButtonStates() { removeRowBtn.disabled = tableData.length <= 2; }
-        function addRow() { tableData.push({ id: uniqueRowId++, date: '', solid: '', core: '' }); renderTable(); updateButtonStates(); }
-
-        function removeRow() {
-            if (tableData.length > 2) {
-                const lastAddedId = Math.max(...tableData.map(d => d.id));
-                tableData = tableData.filter(d => d.id !== lastAddedId);
-                renderTable();
-                updateButtonStates();
-            }
-        }
-
-        function clearAll() {
-            patientIdInput.value = '';
-            tableData = [];
-            newNoduleCheckbox.checked = false;
-            logScaleCheckbox.checked = false;
-            initializeApp();
-        }
-
-        // --- Data Persistence (Save/Load) ---
-        function saveData() {
-            const patientId = patientIdInput.value.trim();
-            if (!patientId) {
-                alert('Please enter a Patient ID to save the session.');
-                return false;
-            }
-            const dataToSave = {
-                tableData: tableData,
-                isNewNodule: newNoduleCheckbox.checked,
-                isLogScale: logScaleCheckbox.checked
-            };
-            localStorage.setItem(`vdt-calc-${patientId}`, JSON.stringify(dataToSave));
+        window.onload = function() {
+            // --- Global variables ---
+            const tableBody = document.getElementById('table-body');
+            const addRowBtn = document.getElementById('add-row-btn');
+            const removeRowBtn = document.getElementById('remove-row-btn');
+            const clearBtn = document.getElementById('clear-btn');
+            const saveBtn = document.getElementById('save-btn');
+            const exportBtn = document.getElementById('export-btn');
+            const exportNewBtn = document.getElementById('export-new-btn');
+            const patientIdInput = document.getElementById('patient-id');
+            const totalResultsContainer = document.getElementById('total-results-container');
+            const predictionResultsContainer = document.getElementById('prediction-results-container');
+            const sortOrderSelect = document.getElementById('sort-order');
+            const newNoduleCheckbox = document.getElementById('new-nodule-checkbox');
+            const logScaleCheckbox = document.getElementById('log-scale-checkbox');
+            const predictionCheckbox = document.getElementById('prediction-checkbox');
+            const chartCanvas = document.getElementById('volumeChart');
             
-            const originalText = saveBtn.textContent;
-            saveBtn.textContent = 'Saved!';
-            saveBtn.classList.add('add-row-btn'); // Use green color for success
-            setTimeout(() => {
-                saveBtn.textContent = originalText;
-                saveBtn.classList.remove('add-row-btn');
-            }, 2000);
-            return true;
-        }
+            let uniqueRowId = 0;
+            let tableData = [];
+            let isPasting = false;
+            let volumeChart = null;
 
-        function loadData() {
-            const patientId = patientIdInput.value.trim();
-            if (!patientId) return;
+            // --- Core Functions (renderTable, updateScanNumbers, etc.) ---
+            function renderTable() {
+                const sortOrder = sortOrderSelect.value;
+                const sortedData = [...tableData].sort((a, b) => {
+                    const dateA = parseDateString(a.date) || 0;
+                    const dateB = parseDateString(b.date) || 0;
+                    if (sortOrder === 'newest_first') return dateB - dateA;
+                    return dateA - dateB;
+                });
 
-            const savedDataString = localStorage.getItem(`vdt-calc-${patientId}`);
-            if (savedDataString) {
-                const savedData = JSON.parse(savedDataString);
-                tableData = savedData.tableData;
-                uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d => d.id)) + 1 : 0;
-                newNoduleCheckbox.checked = savedData.isNewNodule;
-                logScaleCheckbox.checked = savedData.isLogScale || false;
-                renderTable();
+                tableBody.innerHTML = ''; // Clear table
+                sortedData.forEach(dataRow => {
+                    const tr = document.createElement('tr');
+                    tr.dataset.id = dataRow.id;
+                    tr.innerHTML = `
+                        <td class="scan-number">-</td>
+                        <td><input type="text" class="date-input" value="${dataRow.date}"></td>
+                        <td><input type="number" class="solid-input" value="${dataRow.solid}"></td>
+                        <td><input type="number" class="core-input" value="${dataRow.core}"></td>
+                        <td class="result-cell vdt-solid-result">-</td>
+                        <td class="result-cell vdt-core-result">-</td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+
+                bindEventListeners();
+                updateScanNumbers();
+                calculateAll();
             }
-        }
 
-        function saveAndNew() {
-            if(saveData()) {
-                clearAll();
-            }
-        }
-        
-        // --- Event Handlers (Paste, Input) ---
-        function handlePaste(event) {
-             isPasting = true;
-            event.preventDefault();
-            const pasteData = (event.clipboardData || window.clipboardData).getData('text');
-            const rows = pasteData.split(/[\r\n]+/).filter(r => r.trim() !== '').map(r => r.split('\t'));
-            
-            const startCell = event.target;
-            const startRowElement = startCell.closest('tr');
-            
-            const allRenderedRows = Array.from(tableBody.querySelectorAll('tr'));
-            const startRenderedIndex = allRenderedRows.findIndex(row => row === startRowElement);
-
-            const inputs = ['date', 'solid', 'core'];
-            const startInputClass = Array.from(startCell.classList).find(c => c.includes('-input'));
-            const startInputIndex = inputs.indexOf(startInputClass.split('-')[0]);
-
-            const sortedIds = allRenderedRows.map(row => parseInt(row.dataset.id));
-
-            rows.forEach((rowData, rowIndex) => {
-                const targetRenderedIndex = startRenderedIndex + rowIndex;
-                let currentRowData;
-
-                if (targetRenderedIndex < sortedIds.length) {
-                    const targetRowId = sortedIds[targetRenderedIndex];
-                    currentRowData = tableData.find(d => d.id === targetRowId);
-                } else {
-                    const newRow = { id: uniqueRowId++, date: '', solid: '', core: '' };
-                    tableData.push(newRow);
-                    currentRowData = newRow;
-                }
-                
-                rowData.forEach((cellData, colIndex) => {
-                    const currentInputIndex = startInputIndex + colIndex;
-                    if (currentInputIndex < inputs.length && currentRowData) {
-                        currentRowData[inputs[currentInputIndex]] = cellData.trim();
+            function updateScanNumbers() {
+                const sortOrder = sortOrderSelect.value;
+                const rows = tableBody.querySelectorAll('tr');
+                rows.forEach((row, i) => {
+                    const scanNumCell = row.querySelector('.scan-number');
+                    if (sortOrder === 'newest_first') {
+                        scanNumCell.textContent = i === 0 ? 'Scan 0 (Current)' : `Scan -${i}`;
+                    } else {
+                        scanNumCell.textContent = `Scan -${rows.length - 1 - i}`;
+                        if (i === rows.length - 1) scanNumCell.textContent = 'Scan 0 (Current)';
                     }
                 });
-            });
+            }
             
-            renderTable();
-            setTimeout(() => { isPasting = false; }, 100);
-        }
+            function updateButtonStates() { removeRowBtn.disabled = tableData.length <= 2; }
+            function addRow() { tableData.push({ id: uniqueRowId++, date: '', solid: '', core: '' }); renderTable(); updateButtonStates(); }
 
-        function bindEventListeners() {
-            tableBody.querySelectorAll('tr').forEach(tr => {
-                tr.querySelector('.date-input').addEventListener('input', (e) => updateData(e, 'date'));
-                tr.querySelector('.solid-input').addEventListener('input', (e) => updateData(e, 'solid'));
-                tr.querySelector('.core-input').addEventListener('input', (e) => updateData(e, 'core'));
+            function removeRow() {
+                if (tableData.length > 2) {
+                    const lastAddedId = Math.max(...tableData.map(d => d.id));
+                    tableData = tableData.filter(d => d.id !== lastAddedId);
+                    renderTable();
+                    updateButtonStates();
+                }
+            }
+
+            function clearAll() {
+                patientIdInput.value = '';
+                tableData = [];
+                newNoduleCheckbox.checked = false;
+                logScaleCheckbox.checked = false;
+                predictionCheckbox.checked = false;
+                initializeApp();
+            }
+
+            // --- Data Persistence (Save/Load) ---
+            function saveData() {
+                const patientId = patientIdInput.value.trim();
+                if (!patientId) {
+                    alert('Please enter a Patient ID to save the session.');
+                    return false;
+                }
+                const dataToSave = {
+                    tableData: tableData,
+                    isNewNodule: newNoduleCheckbox.checked,
+                    isLogScale: logScaleCheckbox.checked,
+                    isPrediction: predictionCheckbox.checked,
+                };
+                localStorage.setItem(`vdt-calc-${patientId}`, JSON.stringify(dataToSave));
                 
-                const dateInput = tr.querySelector('.date-input');
-                dateInput.addEventListener('blur', (e) => { format_date(e); updateData(e, 'date'); });
-                dateInput.addEventListener('focus', unformat_date);
+                const originalText = saveBtn.textContent;
+                saveBtn.textContent = 'Saved!';
+                saveBtn.classList.add('add-row-btn'); // Use green color for success
+                setTimeout(() => {
+                    saveBtn.textContent = originalText;
+                    saveBtn.classList.remove('add-row-btn');
+                }, 2000);
+                return true;
+            }
 
-                tr.querySelectorAll('input').forEach(input => {
-                    input.addEventListener('paste', handlePaste);
+            function loadData() {
+                const patientId = patientIdInput.value.trim();
+                if (!patientId) return;
+
+                const savedDataString = localStorage.getItem(`vdt-calc-${patientId}`);
+                if (savedDataString) {
+                    const savedData = JSON.parse(savedDataString);
+                    tableData = savedData.tableData;
+                    uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d => d.id)) + 1 : 0;
+                    newNoduleCheckbox.checked = savedData.isNewNodule;
+                    logScaleCheckbox.checked = savedData.isLogScale || false;
+                    predictionCheckbox.checked = savedData.isPrediction || false;
+                    renderTable();
+                }
+            }
+
+            function saveAndNew() {
+                if(saveData()) {
+                    clearAll();
+                }
+            }
+            
+            // --- Event Handlers (Paste, Input) ---
+            function handlePaste(event) {
+                 isPasting = true;
+                event.preventDefault();
+                const pasteData = (event.clipboardData || window.clipboardData).getData('text');
+                const rows = pasteData.split(/[\r\n]+/).filter(r => r.trim() !== '').map(r => r.split('\t'));
+                
+                const startCell = event.target;
+                const startRowElement = startCell.closest('tr');
+                
+                const allRenderedRows = Array.from(tableBody.querySelectorAll('tr'));
+                const startRenderedIndex = allRenderedRows.findIndex(row => row === startRowElement);
+
+                const inputs = ['date', 'solid', 'core'];
+                const startInputClass = Array.from(startCell.classList).find(c => c.includes('-input'));
+                const startInputIndex = inputs.indexOf(startInputClass.split('-')[0]);
+
+                const sortedIds = allRenderedRows.map(row => parseInt(row.dataset.id));
+
+                rows.forEach((rowData, rowIndex) => {
+                    const targetRenderedIndex = startRenderedIndex + rowIndex;
+                    let currentRowData;
+
+                    if (targetRenderedIndex < sortedIds.length) {
+                        const targetRowId = sortedIds[targetRenderedIndex];
+                        currentRowData = tableData.find(d => d.id === targetRowId);
+                    } else {
+                        const newRow = { id: uniqueRowId++, date: '', solid: '', core: '' };
+                        tableData.push(newRow);
+                        currentRowData = newRow;
+                    }
+                    
+                    rowData.forEach((cellData, colIndex) => {
+                        const currentInputIndex = startInputIndex + colIndex;
+                        if (currentInputIndex < inputs.length && currentRowData) {
+                            currentRowData[inputs[currentInputIndex]] = cellData.trim();
+                        }
+                    });
                 });
-            });
-        }
-        
-        function updateData(event, key) {
-            if (isPasting) return;
-            const rowId = parseInt(event.target.closest('tr').dataset.id);
-            const dataRow = tableData.find(d => d.id === rowId);
-            if (dataRow) dataRow[key] = event.target.value;
-            calculateAll();
-        }
-
-        function format_date(event) {
-             let value = event.target.value.replace(/-/g, '');
-            if (value.length === 8 && !isNaN(value)) {
-                event.target.value = `${value.substring(0, 4)}-${value.substring(4, 6)}-${value.substring(6, 8)}`;
-            }
-        }
-        function unformat_date(event) { event.target.value = event.target.value.replace(/-/g, ''); }
-        function parseDateString(dateStr) {
-            if (!dateStr) return null;
-            const cleanStr = dateStr.replace(/-/g, '');
-            if (cleanStr.length !== 8 || isNaN(cleanStr)) return null;
-            return new Date(parseInt(cleanStr.substring(0, 4)), parseInt(cleanStr.substring(4, 6)) - 1, parseInt(cleanStr.substring(6, 8)));
-        }
-
-        // --- Calculation Engine ---
-        function calculateSingleVDT(vol1, vol2, timeDiff) {
-            const baseReturn = { html: '-', value: null, timeDiff: null, volumeChange: null };
-            if (timeDiff === null || timeDiff <= 0 || isNaN(vol1) || isNaN(vol2) || vol1 <= 0 || vol2 <= 0) { return baseReturn; }
-            
-            const volumeChange = ((vol1 - vol2) / vol2) * 100;
-            if (vol1 === vol2) { return { html: `<span class="vdt-stable-or-slow">Stable</span>`, value: 'Stable', timeDiff: timeDiff.toFixed(0), volumeChange: volumeChange.toFixed(1) }; }
-            
-            const vdt = (Math.log(2) * timeDiff) / (Math.log(vol1) - Math.log(vol2));
-            const displayValue = vdt.toFixed(0);
-            let className = 'vdt-stable-or-slow';
-            if (vdt > 0 && vdt <= 400) className = 'vdt-positive';
-            else if (vdt > 400 && vdt <= 600) className = 'vdt-indeterminate';
-            else if (vdt < 0 && vdt >= -400) className = 'vdt-fast-shrinking';
-            return { html: `<strong><span class="${className}">${displayValue}d</span></strong>`, value: displayValue, timeDiff: timeDiff.toFixed(0), volumeChange: volumeChange.toFixed(1) };
-        }
-
-        function calculateAll() {
-             const isNewNodule = newNoduleCheckbox.checked;
-            const dataForCalc = tableData
-                .map(d => ({...d, dateObj: parseDateString(d.date), solid: parseFloat(d.solid), core: parseFloat(d.core) }))
-                .filter(d => d.dateObj)
-                .sort((a, b) => a.dateObj - b.dateObj);
-
-            document.querySelectorAll('.result-cell').forEach(cell => cell.innerHTML = '-');
-
-            function createResultHTML(result, isMax = false) {
-                if (result.value === null) return '-';
-                const maxSuffix = isMax ? ' <small>(max)</small>' : '';
-                const volChangeFormatted = `${result.volumeChange > 0 ? '+' : ''}${result.volumeChange}%`;
-                return `${result.html}${maxSuffix}<div class="extra-info">${result.timeDiff}d | ${volChangeFormatted}</div>`;
-            }
-            
-            for (let i = 1; i < dataForCalc.length; i++) {
-                const prevScan = dataForCalc[i - 1];
-                const currScan = dataForCalc[i];
-                const isFirstInterval = (i === 1);
-                const isMaxCalc = isFirstInterval && isNewNodule;
-                const prevSolid = isMaxCalc ? 15 : prevScan.solid;
-                const prevCore = isMaxCalc ? 15 : prevScan.core;
-
-                const timeDiff = (currScan.dateObj - prevScan.dateObj) / (1000 * 60 * 60 * 24);
-
-                const solidResult = calculateSingleVDT(currScan.solid, prevSolid, timeDiff);
-                const coreResult = calculateSingleVDT(currScan.core, prevCore, timeDiff);
                 
-                const targetRow = document.querySelector(`tr[data-id="${currScan.id}"]`);
-                if(targetRow){
-                    targetRow.querySelector('.vdt-solid-result').innerHTML = createResultHTML(solidResult, isMaxCalc);
-                    targetRow.querySelector('.vdt-core-result').innerHTML = createResultHTML(coreResult, isMaxCalc);
-                }
+                renderTable();
+                setTimeout(() => { isPasting = false; }, 100);
             }
 
-            if (dataForCalc.length > 1) {
-                const firstForTotal = (isNewNodule && dataForCalc.length > 1) ? dataForCalc[1] : dataForCalc[0];
-                const last = dataForCalc[dataForCalc.length - 1];
-                
-                const totalTimeDiff = (last.dateObj - firstForTotal.dateObj) / (1000 * 60 * 60 * 24);
+            function bindEventListeners() {
+                tableBody.querySelectorAll('tr').forEach(tr => {
+                    tr.querySelector('.date-input').addEventListener('input', (e) => updateData(e, 'date'));
+                    tr.querySelector('.solid-input').addEventListener('input', (e) => updateData(e, 'solid'));
+                    tr.querySelector('.core-input').addEventListener('input', (e) => updateData(e, 'core'));
+                    
+                    const dateInput = tr.querySelector('.date-input');
+                    dateInput.addEventListener('blur', (e) => { format_date(e); updateData(e, 'date'); });
+                    dateInput.addEventListener('focus', unformat_date);
 
-                const totalSolidResult = calculateSingleVDT(last.solid, firstForTotal.solid, totalTimeDiff);
-                const totalCoreResult = calculateSingleVDT(last.core, firstForTotal.core, totalTimeDiff);
-                
-                totalResultsContainer.innerHTML = `
-                    <div class="total-result-box">
-                        <div class="label">Total VDT</div><div class="value">${createResultHTML(totalSolidResult)}</div>
-                    </div>
-                    <div class="total-result-box">
-                        <div class="label">Total VDTcore</div><div class="value">${createResultHTML(totalCoreResult)}</div>
-                    </div>`;
-            } else {
-                totalResultsContainer.innerHTML = '';
-            }
-            renderChart(dataForCalc);
-        }
-
-        function renderChart(data) {
-            if (volumeChart) {
-                volumeChart.destroy();
-            }
-
-            const ctx = chartCanvas.getContext('2d');
-            const isNewNodule = newNoduleCheckbox.checked;
-            const useLogScale = logScaleCheckbox.checked;
-            
-            let chartData = [...data];
-            if (isNewNodule && chartData.length > 0) {
-                 chartData[0] = { ...chartData[0], solid: 15, core: 15 };
-            }
-
-            const validDataPoints = chartData.filter(d => d.dateObj && (!isNaN(d.solid) || !isNaN(d.core)));
-
-            if (validDataPoints.length < 2) {
-                ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
-                return;
-            }
-            
-            const annotations = [];
-            for (let i = 1; i < chartData.length; i++) {
-                const prev = chartData[i-1];
-                const curr = chartData[i];
-                const isMaxCalc = (i === 1 && isNewNodule);
-                const solidVdtLabel = isMaxCalc ? 'VDTmax' : 'VDT';
-                const coreVdtLabel = isMaxCalc ? 'VDTcore(max)' : 'VDTcore';
-                
-                const solidResult = calculateSingleVDT(curr.solid, prev.solid, (curr.dateObj - prev.dateObj) / (1000 * 60 * 60 * 24));
-                if (solidResult.value !== null && !isNaN(prev.solid) && !isNaN(curr.solid)) {
-                    const midX = (prev.dateObj.getTime() + curr.dateObj.getTime()) / 2;
-                    const midY = (prev.solid + curr.solid) / 2;
-                    const annotationText = [`${solidResult.timeDiff}d, ${solidResult.volumeChange > 0 ? '+' : ''}${solidResult.volumeChange}%`, `${solidVdtLabel}: ${solidResult.value}d`];
-                    annotations.push({
-                        type: 'label', xValue: midX, yValue: midY, content: annotationText,
-                        backgroundColor: 'rgba(54, 162, 235, 0.8)', font: { size: 10 }, color: 'white',
-                        yAdjust: -15, xAdjust: -25, borderRadius: 4, padding: 4
+                    tr.querySelectorAll('input').forEach(input => {
+                        input.addEventListener('paste', handlePaste);
                     });
-                }
-                
-                const coreResult = calculateSingleVDT(curr.core, prev.core, (curr.dateObj - prev.dateObj) / (1000 * 60 * 60 * 24));
-                 if (coreResult.value !== null && !isNaN(prev.core) && !isNaN(curr.core)) {
-                    const midX = (prev.dateObj.getTime() + curr.dateObj.getTime()) / 2;
-                    const midY = (prev.core + curr.core) / 2;
-                     const annotationText = [`${coreResult.timeDiff}d, ${coreResult.volumeChange > 0 ? '+' : ''}${coreResult.volumeChange}%`, `${coreVdtLabel}: ${coreResult.value}d`];
-                    annotations.push({
-                        type: 'label', xValue: midX, yValue: midY, content: annotationText,
-                        backgroundColor: 'rgba(255, 99, 132, 0.8)', font: { size: 10 }, color: 'white',
-                        yAdjust: 15, xAdjust: 25, borderRadius: 4, padding: 4
-                    });
-                }
+                });
             }
             
-            const allVolumes = chartData.flatMap(d => [d.solid, d.core]).filter(v => !isNaN(v) && v !== null);
-            let yMin = Math.min(...allVolumes);
-            let yMax = Math.max(...allVolumes);
-            const padding = (yMax - yMin) * 0.2 || 10;
-            yMin = yMin > padding ? yMin - padding : 0;
-            yMax = yMax + padding;
+            function updateData(event, key) {
+                if (isPasting) return;
+                const rowId = parseInt(event.target.closest('tr').dataset.id);
+                const dataRow = tableData.find(d => d.id === rowId);
+                if (dataRow) dataRow[key] = event.target.value;
+                calculateAll();
+            }
 
-            volumeChart = new Chart(chartCanvas, {
-                type: 'line',
-                data: {
-                    datasets: [
-                        {
-                            label: 'Solid',
-                            data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.solid) ? null : d.solid })),
-                            borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.5)', tension: 0.1,
+            function format_date(event) {
+                 let value = event.target.value.replace(/-/g, '');
+                if (value.length === 8 && !isNaN(value)) {
+                    event.target.value = `${value.substring(0, 4)}-${value.substring(4, 6)}-${value.substring(6, 8)}`;
+                }
+            }
+            function unformat_date(event) { event.target.value = event.target.value.replace(/-/g, ''); }
+            function parseDateString(dateStr) {
+                if (!dateStr) return null;
+                const cleanStr = dateStr.replace(/-/g, '');
+                if (cleanStr.length !== 8 || isNaN(cleanStr)) return null;
+                return new Date(parseInt(cleanStr.substring(0, 4)), parseInt(cleanStr.substring(4, 6)) - 1, parseInt(cleanStr.substring(6, 8)));
+            }
+
+            // --- Calculation Engine ---
+            function calculateSingleVDT(vol1, vol2, timeDiff) {
+                const baseReturn = { html: '-', value: null, timeDiff: null, volumeChange: null };
+                if (timeDiff === null || timeDiff <= 0 || isNaN(vol1) || isNaN(vol2) || vol1 <= 0 || vol2 <= 0) { return baseReturn; }
+                
+                const volumeChange = ((vol1 - vol2) / vol2) * 100;
+                if (vol1 === vol2) { return { html: `<span class="vdt-stable-or-slow">Stable</span>`, value: 'Stable', timeDiff: timeDiff.toFixed(0), volumeChange: volumeChange.toFixed(1) }; }
+                
+                const vdt = (Math.log(2) * timeDiff) / (Math.log(vol1) - Math.log(vol2));
+                const displayValue = vdt.toFixed(0);
+                let className = 'vdt-stable-or-slow';
+                if (vdt > 0 && vdt <= 400) className = 'vdt-positive';
+                else if (vdt > 400 && vdt <= 600) className = 'vdt-indeterminate';
+                else if (vdt < 0 && vdt >= -400) className = 'vdt-fast-shrinking';
+                return { html: `<strong><span class="${className}">${displayValue}d</span></strong>`, value: displayValue, timeDiff: timeDiff.toFixed(0), volumeChange: volumeChange.toFixed(1) };
+            }
+
+            function calculateAll() {
+                 const isNewNodule = newNoduleCheckbox.checked;
+                const dataForCalc = tableData
+                    .map(d => ({...d, dateObj: parseDateString(d.date), solid: parseFloat(d.solid), core: parseFloat(d.core) }))
+                    .filter(d => d.dateObj)
+                    .sort((a, b) => a.dateObj - b.dateObj);
+
+                document.querySelectorAll('.result-cell').forEach(cell => cell.innerHTML = '-');
+
+                function createResultHTML(result, isMax = false) {
+                    if (result.value === null) return '-';
+                    const maxSuffix = isMax ? ' <small>(max)</small>' : '';
+                    const volChangeFormatted = `${result.volumeChange > 0 ? '+' : ''}${result.volumeChange}%`;
+                    return `${result.html}${maxSuffix}<div class="extra-info">${result.timeDiff}d | ${volChangeFormatted}</div>`;
+                }
+                
+                let firstIntervalSolidResult, firstIntervalCoreResult;
+                for (let i = 1; i < dataForCalc.length; i++) {
+                    const prevScan = dataForCalc[i - 1];
+                    const currScan = dataForCalc[i];
+                    const isFirstInterval = (i === 1);
+                    const isMaxCalc = isFirstInterval && isNewNodule;
+                    const prevSolid = isMaxCalc ? 15 : prevScan.solid;
+                    const prevCore = isMaxCalc ? 15 : prevScan.core;
+
+                    const timeDiff = (currScan.dateObj - prevScan.dateObj) / (1000 * 60 * 60 * 24);
+
+                    const solidResult = calculateSingleVDT(currScan.solid, prevSolid, timeDiff);
+                    const coreResult = calculateSingleVDT(currScan.core, prevCore, timeDiff);
+                    
+                    if(isFirstInterval) {
+                        firstIntervalSolidResult = solidResult;
+                        firstIntervalCoreResult = coreResult;
+                    }
+
+                    const targetRow = document.querySelector(`tr[data-id="${currScan.id}"]`);
+                    if(targetRow){
+                        targetRow.querySelector('.vdt-solid-result').innerHTML = createResultHTML(solidResult, isMaxCalc);
+                        targetRow.querySelector('.vdt-core-result').innerHTML = createResultHTML(coreResult, isMaxCalc);
+                    }
+                }
+
+                let totalSolidResult, totalCoreResult;
+                if (dataForCalc.length > 1) {
+                    const firstForTotal = (isNewNodule && dataForCalc.length > 1) ? dataForCalc[1] : dataForCalc[0];
+                    const last = dataForCalc[dataForCalc.length - 1];
+                    
+                    const totalTimeDiff = (last.dateObj - firstForTotal.dateObj) / (1000 * 60 * 60 * 24);
+
+                    totalSolidResult = calculateSingleVDT(last.solid, firstForTotal.solid, totalTimeDiff);
+                    totalCoreResult = calculateSingleVDT(last.core, firstForTotal.core, totalTimeDiff);
+                    
+                    totalResultsContainer.innerHTML = `
+                        <div class="total-result-box">
+                            <div class="label">Total VDT</div>
+                            <div class="value">${createResultHTML(totalSolidResult)}</div>
+                            <button class="control-btn copy-btn" data-type="solid">Copy Solid Report</button>
+                        </div>
+                        <div class="total-result-box">
+                            <div class="label">Total VDTcore</div>
+                            <div class="value">${createResultHTML(totalCoreResult)}</div>
+                            <button class="control-btn copy-btn" data-type="core">Copy Core Report</button>
+                        </div>`;
+                    
+                    document.querySelectorAll('.copy-btn').forEach(btn => {
+                        btn.addEventListener('click', (event) => copyReport(event.target.dataset.type, event));
+                    });
+
+                } else {
+                    totalResultsContainer.innerHTML = '';
+                }
+                
+                // Prediction Logic
+                if (predictionCheckbox.checked && dataForCalc.length > 0) {
+                    predictionResultsContainer.classList.remove('hidden');
+                    const last = dataForCalc[dataForCalc.length - 1];
+                    let vdtForSolidPrediction = totalSolidResult;
+                    let vdtForCorePrediction = totalCoreResult;
+
+                    if (isNewNodule && dataForCalc.length === 2) {
+                        vdtForSolidPrediction = firstIntervalSolidResult;
+                        vdtForCorePrediction = firstIntervalCoreResult;
+                    }
+                    
+                    const predict = (vdtResult, lastVol) => {
+                        if (!vdtResult || !vdtResult.value || vdtResult.value === 'Stable' || isNaN(lastVol)) return { m3: 'N/A', y1: 'N/A' };
+                        const vdt = parseFloat(vdtResult.value);
+                        if (vdt <= 0) return { m3: 'N/A', y1: 'N/A' };
+                        const m3Vol = lastVol * Math.pow(2, 90 / vdt);
+                        const y1Vol = lastVol * Math.pow(2, 365 / vdt);
+                        return { m3: m3Vol.toFixed(1), y1: y1Vol.toFixed(1) };
+                    };
+
+                    const solidPrediction = predict(vdtForSolidPrediction, last.solid);
+                    const corePrediction = predict(vdtForCorePrediction, last.core);
+
+                    predictionResultsContainer.innerHTML = `
+                        <div class="prediction-result-box">
+                            <div class="label">Solid Prediction (3m / 1yr)</div>
+                            <div class="value">${solidPrediction.m3} / ${solidPrediction.y1} mm³</div>
+                        </div>
+                        <div class="prediction-result-box">
+                            <div class="label">Solid Core Prediction (3m / 1yr)</div>
+                            <div class="value">${corePrediction.m3} / ${corePrediction.y1} mm³</div>
+                        </div>
+                    `;
+
+                } else {
+                    predictionResultsContainer.classList.add('hidden');
+                }
+
+                renderChart(dataForCalc, totalSolidResult, totalCoreResult);
+            }
+
+            function renderChart(data, totalSolidResult, totalCoreResult) {
+                if (volumeChart) {
+                    volumeChart.destroy();
+                }
+
+                const ctx = chartCanvas.getContext('2d');
+                const isNewNodule = newNoduleCheckbox.checked;
+                const useLogScale = logScaleCheckbox.checked;
+                const usePrediction = predictionCheckbox.checked;
+                
+                let chartData = [...data];
+                if (isNewNodule && chartData.length > 0) {
+                     chartData[0] = { ...chartData[0], solid: 15, core: 15 };
+                }
+
+                const validDataPoints = chartData.filter(d => d.dateObj && (!isNaN(d.solid) || !isNaN(d.core)));
+
+                if (validDataPoints.length < 1) {
+                    ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+                    return;
+                }
+                
+                const annotations = [];
+                // Interval Annotations
+                if (validDataPoints.length > 1) {
+                    for (let i = 1; i < chartData.length; i++) {
+                        const prev = chartData[i-1];
+                        const curr = chartData[i];
+                        const isMaxCalc = (i === 1 && isNewNodule);
+                        const solidVdtLabel = isMaxCalc ? 'VDTmax' : 'VDT';
+                        const coreVdtLabel = isMaxCalc ? 'VDTcore(max)' : 'VDTcore';
+                        
+                        const solidResult = calculateSingleVDT(curr.solid, prev.solid, (curr.dateObj - prev.dateObj) / (1000 * 60 * 60 * 24));
+                        if (solidResult.value !== null && !isNaN(prev.solid) && !isNaN(curr.solid)) {
+                            const midX = (prev.dateObj.getTime() + curr.dateObj.getTime()) / 2;
+                            const midY = useLogScale ? Math.sqrt(prev.solid * curr.solid) : (prev.solid + curr.solid) / 2;
+                            const annotationText = [`${solidResult.timeDiff}d, ${solidResult.volumeChange > 0 ? '+' : ''}${solidResult.volumeChange}%`, `${solidVdtLabel}: ${solidResult.value}d`];
+                            annotations.push({
+                                type: 'label', xValue: midX, yValue: midY, content: annotationText,
+                                backgroundColor: 'rgba(54, 162, 235, 0.8)', font: { size: 10 }, color: 'white',
+                                yAdjust: -15, xAdjust: -45, borderRadius: 4, padding: 4
+                            });
+                        }
+                        
+                        const coreResult = calculateSingleVDT(curr.core, prev.core, (curr.dateObj - prev.dateObj) / (1000 * 60 * 60 * 24));
+                         if (coreResult.value !== null && !isNaN(prev.core) && !isNaN(curr.core)) {
+                            const midX = (prev.dateObj.getTime() + curr.dateObj.getTime()) / 2;
+                            const midY = useLogScale ? Math.sqrt(prev.core * curr.core) : (prev.core + curr.core) / 2;
+                             const annotationText = [`${coreResult.timeDiff}d, ${coreResult.volumeChange > 0 ? '+' : ''}${coreResult.volumeChange}%`, `${coreVdtLabel}: ${coreResult.value}d`];
+                            annotations.push({
+                                type: 'label', xValue: midX, yValue: midY, content: annotationText,
+                                backgroundColor: 'rgba(255, 99, 132, 0.8)', font: { size: 10 }, color: 'white',
+                                yAdjust: 15, xAdjust: 45, borderRadius: 4, padding: 4
+                            });
+                        }
+                    }
+                }
+                
+                const datasets = [
+                    {
+                        label: 'Solid',
+                        data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.solid) ? null : d.solid })),
+                        borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.5)', tension: 0.1,
+                        datalabels: {
+                            align: 'top',
+                            formatter: (value, context) => {
+                                const index = context.dataIndex;
+                                if (index >= chartData.length) return null; // Hide labels for prediction points on main dataset
+                                const scanNumber = index === chartData.length - 1 ? 'Scan 0' : `Scan -${chartData.length - 1 - index}`;
+                                const volumeText = (isNewNodule && index === 0) ? "15.0 mm³ (Assumed)" : `${value.y.toFixed(1)} mm³`;
+                                return `${scanNumber}\n${volumeText}`;
+                            }
+                        }
+                    },
+                    {
+                        label: 'Solid core',
+                        data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.core) ? null : d.core })),
+                        borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)', tension: 0.1,
+                         datalabels: {
+                            align: 'bottom',
+                            formatter: (value, context) => {
+                                 if (context.dataIndex >= chartData.length) return null;
+                                const index = context.dataIndex;
+                                const scanNumber = index === chartData.length - 1 ? 'Scan 0' : `Scan -${chartData.length - 1 - index}`;
+                                const volumeText = (isNewNodule && index === 0) ? "15.0 mm³ (Assumed)" : `${value.y.toFixed(1)} mm³`;
+                                return `${scanNumber}\n${volumeText}`;
+                            }
+                        }
+                    }
+                ];
+
+                // Add Total VDT and Prediction datasets
+                if(validDataPoints.length > 1) {
+                    const firstForTotal = (isNewNodule && chartData.length > 1) ? chartData[1] : chartData[0];
+                    const last = chartData[chartData.length-1];
+
+                    // Total VDT Line
+                    datasets.push({
+                        label: 'Total Trend (Solid)',
+                        data: [{x: firstForTotal.dateObj, y: firstForTotal.solid}, {x: last.dateObj, y: last.solid}],
+                        borderColor: 'rgba(54, 162, 235, 0.5)', borderDash: [6, 6], pointRadius: 0,
+                        datalabels: { display: false }
+                    });
+                     datasets.push({
+                        label: 'Total Trend (Core)',
+                        data: [{x: firstForTotal.dateObj, y: firstForTotal.core}, {x: last.dateObj, y: last.core}],
+                        borderColor: 'rgba(255, 99, 132, 0.5)', borderDash: [6, 6], pointRadius: 0,
+                        datalabels: { display: false }
+                    });
+
+                    // Total VDT Annotations
+                    if (totalSolidResult && totalSolidResult.value !== null) {
+                        const midX = (firstForTotal.dateObj.getTime() + last.dateObj.getTime()) / 2;
+                        const midY = useLogScale ? Math.sqrt(firstForTotal.solid * last.solid) : (firstForTotal.solid + last.solid) / 2;
+                        const annotationText = [`Total VDT: ${totalSolidResult.value}d`, `(${totalSolidResult.timeDiff}d, ${totalSolidResult.volumeChange > 0 ? '+' : ''}${totalSolidResult.volumeChange}%)`];
+                        annotations.push({
+                            type: 'label', xValue: midX, yValue: midY, content: annotationText,
+                            backgroundColor: 'rgba(100, 100, 100, 0.7)', font: { size: 10 }, color: 'white',
+                            yAdjust: -30, borderRadius: 4, padding: 4
+                        });
+                    }
+                    if (totalCoreResult && totalCoreResult.value !== null) {
+                        const midX = (firstForTotal.dateObj.getTime() + last.dateObj.getTime()) / 2;
+                        const midY = useLogScale ? Math.sqrt(firstForTotal.core * last.core) : (firstForTotal.core + last.core) / 2;
+                        const annotationText = [`Total VDTcore: ${totalCoreResult.value}d`, `(${totalCoreResult.timeDiff}d, ${totalCoreResult.volumeChange > 0 ? '+' : ''}${totalCoreResult.volumeChange}%)`];
+                        annotations.push({
+                            type: 'label', xValue: midX, yValue: midY, content: annotationText,
+                            backgroundColor: 'rgba(100, 100, 100, 0.7)', font: { size: 10 }, color: 'white',
+                            yAdjust: 30, borderRadius: 4, padding: 4
+                        });
+                    }
+
+                    if(usePrediction) {
+                        let vdtForSolidPrediction = totalSolidResult;
+                        let vdtForCorePrediction = totalCoreResult;
+
+                        if (isNewNodule && chartData.length === 2) {
+                            const timeDiff = (chartData[1].dateObj - chartData[0].dateObj) / (1000 * 60 * 60 * 24);
+                            vdtForSolidPrediction = calculateSingleVDT(chartData[1].solid, 15, timeDiff);
+                            vdtForCorePrediction = calculateSingleVDT(chartData[1].core, 15, timeDiff);
+                        }
+
+                        const predict = (vdtResult, lastVol) => {
+                            if (!vdtResult || !vdtResult.value || vdtResult.value === 'Stable' || isNaN(lastVol)) return { m3: null, y1: null };
+                            const vdt = parseFloat(vdtResult.value);
+                            if (vdt <= 0) return { m3: null, y1: null };
+                            const m3Vol = lastVol * Math.pow(2, 90 / vdt);
+                            const y1Vol = lastVol * Math.pow(2, 365 / vdt);
+                            return { m3: m3Vol, y1: y1Vol };
+                        };
+                        
+                        const solidPrediction = predict(vdtForSolidPrediction, last.solid);
+                        const corePrediction = predict(vdtForCorePrediction, last.core);
+                        
+                        const date3m = new Date(last.dateObj); date3m.setDate(date3m.getDate() + 90);
+                        const date1y = new Date(last.dateObj); date1y.setDate(date1y.getDate() + 365);
+                        
+                        datasets.push({
+                            label: 'Solid Prediction',
+                            data: [{x: last.dateObj, y: last.solid}, {x: date3m, y: solidPrediction.m3}, {x: date1y, y: solidPrediction.y1}],
+                            borderColor: 'rgb(54, 162, 235)', borderDash: [6, 6], tension: 0.1,
+                            backgroundColor: 'transparent',
                             datalabels: {
                                 align: 'top',
                                 formatter: (value, context) => {
-                                    const index = context.dataIndex;
-                                    const scanNumber = index === chartData.length - 1 ? 'Scan 0' : `Scan -${chartData.length - 1 - index}`;
-                                    const volumeText = (isNewNodule && index === 0) ? "15.0 mm³ (Assumed)" : `${value.y.toFixed(1)} mm³`;
-                                    return `${scanNumber}\n${volumeText}`;
+                                     if(context.dataIndex > 0) {
+                                        const label = context.dataIndex === 1 ? 'Scan +3m' : 'Scan +1yr';
+                                        return `${label}\n${value.y.toFixed(1)} mm³`;
+                                     }
+                                     return null;
                                 }
                             }
-                        },
-                        {
-                            label: 'Solid core',
-                            data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.core) ? null : d.core })),
-                            borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)', tension: 0.1,
-                             datalabels: {
+                        });
+                        datasets.push({
+                            label: 'Solid Core Prediction',
+                            data: [{x: last.dateObj, y: last.core}, {x: date3m, y: corePrediction.m3}, {x: date1y, y: corePrediction.y1}],
+                            borderColor: 'rgb(255, 99, 132)', borderDash: [6, 6], tension: 0.1,
+                            backgroundColor: 'transparent',
+                            datalabels: {
                                 align: 'bottom',
                                 formatter: (value, context) => {
-                                    const index = context.dataIndex;
-                                    const scanNumber = index === chartData.length - 1 ? 'Scan 0' : `Scan -${chartData.length - 1 - index}`;
-                                    const volumeText = (isNewNodule && index === 0) ? "15.0 mm³ (Assumed)" : `${value.y.toFixed(1)} mm³`;
-                                    return `${scanNumber}\n${volumeText}`;
+                                     if(context.dataIndex > 0) {
+                                        const label = context.dataIndex === 1 ? 'Scan +3m' : 'Scan +1yr';
+                                        return `${label}\n${value.y.toFixed(1)} mm³`;
+                                     }
+                                     return null;
                                 }
                             }
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: true, text: 'Volume Change Over Time' },
-                        datalabels: {
-                            backgroundColor: '#fff', borderRadius: 4, borderWidth: 1, borderColor: '#ccc',
-                            padding: 4, font: { size: 10, weight: 'bold' }, textAlign: 'center'
-                        },
-                        annotation: { annotations: annotations }
-                    },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: { unit: 'day', tooltipFormat: 'yyyy-MM-dd', displayFormats: { day: 'yyyy-MM-dd' } },
-                            ticks: { source: 'data' },
-                            title: { display: true, text: 'Date' }
-                        },
-                        y: { 
-                            type: useLogScale ? 'logarithmic' : 'linear',
-                            min: useLogScale ? (yMin > 0 ? yMin*0.8 : 1) : yMin,
-                            max: yMax, 
-                            title: { display: true, text: 'Volume (mm³)' } 
-                        }
+                        });
                     }
                 }
-            });
-        }
-
-        function exportToCSV(isExportAll = false) {
-            let csvContent = "data:text/csv;charset=utf-8,";
-            let filename = "VDT_results.csv";
-            
-            const headers = ['PatientID', 'Scan_Order', 'Scan_Date', 'Solid_Volume', 'Solid_Core_Volume', 'Interval_VDT_Solid', 'Interval_Days_Solid', 'Interval_Change_Solid_%', 'Interval_VDT_Core', 'Interval_Days_Core', 'Interval_Change_Core_%'];
-            
-            const processPatientData = (patientId, patientTableData, isNewNodule) => {
-                let patientCsvString = "";
-                const dataForCalc = patientTableData
-                    .map(d => ({...d, dateObj: parseDateString(d.date) }))
-                    .filter(d => d.dateObj)
-                    .sort((a, b) => a.dateObj - b.dateObj);
                 
-                dataForCalc.forEach((scan, i) => {
-                    let row = [patientId, i === dataForCalc.length - 1 ? 'Scan 0 (Current)' : `Scan -${dataForCalc.length - 1 - i}`];
-                    const solidVol = (isNewNodule && i === 0) ? '15 (Assumed)' : scan.solid;
-                    const coreVol = (isNewNodule && i === 0) ? '15 (Assumed)' : scan.core;
-                    row.push(scan.date, solidVol, coreVol);
-                    
-                    if (i > 0) {
-                        const prevScan = dataForCalc[i-1];
-                        const timeDiff = (scan.dateObj - prevScan.dateObj) / (1000 * 60 * 60 * 24);
-                        const prevSolid = (isNewNodule && i === 1) ? 15 : parseFloat(prevScan.solid);
-                        const prevCore = (isNewNodule && i === 1) ? 15 : parseFloat(prevScan.core);
+                const allVolumes = datasets.flatMap(ds => ds.data.map(p => p.y)).filter(v => v !== null && !isNaN(v));
+                let yMin = Math.min(...allVolumes);
+                let yMax = Math.max(...allVolumes);
+                const padding = (yMax - yMin) * 0.2 || 10;
+                yMin = yMin > padding ? yMin - padding : 0;
+                yMax = yMax + padding;
 
-                        const solidResult = calculateSingleVDT(parseFloat(scan.solid), prevSolid, timeDiff);
-                        const coreResult = calculateSingleVDT(parseFloat(scan.core), prevCore, timeDiff);
-                        const solidValue = solidResult.value ? (isNewNodule && i === 1 ? `${solidResult.value} (max)` : solidResult.value) : '';
-                        const coreValue = coreResult.value ? (isNewNodule && i === 1 ? `${coreResult.value} (max)` : coreResult.value) : '';
-                        row.push(solidValue, solidResult.timeDiff ?? '', solidResult.volumeChange ?? '');
-                        row.push(coreValue, coreResult.timeDiff ?? '', coreResult.volumeChange ?? '');
-                    } else {
-                        row.push('', '', '', '', '', '');
+                volumeChart = new Chart(chartCanvas, {
+                    type: 'line',
+                    data: { datasets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    filter: function(item, chart) {
+                                        return !item.text.includes('Trend') && !item.text.includes('Prediction');
+                                    }
+                                }
+                            },
+                            title: { display: true, text: 'Volume Change Over Time' },
+                            datalabels: {
+                                backgroundColor: '#fff', borderRadius: 4, borderWidth: 1, borderColor: '#ccc',
+                                padding: 4, font: { size: 10, weight: 'bold' }, textAlign: 'center'
+                            },
+                            annotation: { annotations: annotations },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        const date = new Date(context[0].parsed.x);
+                                        return date.toISOString().split('T')[0];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: { unit: 'day', tooltipFormat: 'yyyy-MM-dd', displayFormats: { day: 'yyyy-MM-dd' } },
+                                ticks: { source: 'data', autoSkip: true, maxRotation: 45, minRotation: 45 },
+                                title: { display: true, text: 'Date' }
+                            },
+                            y: { 
+                                type: useLogScale ? 'logarithmic' : 'linear',
+                                min: useLogScale ? (yMin > 0 ? yMin*0.8 : 1) : yMin,
+                                max: yMax, 
+                                title: { display: true, text: 'Volume (mm³)' } 
+                            }
+                        }
                     }
-                    patientCsvString += row.join(',') + '\r\n';
                 });
-                return patientCsvString;
-            };
-
-            csvContent += headers.join(',') + '\r\n';
-
-            if (isExportAll) {
-                filename = "VDT_All_Patients_Export.csv";
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key.startsWith('vdt-calc-')) {
-                        const patientId = key.substring(9);
-                        const savedData = JSON.parse(localStorage.getItem(key));
-                        csvContent += processPatientData(patientId, savedData.tableData, savedData.isNewNodule);
-                        csvContent += '\r\n';
-                    }
-                }
-            } else {
-                const patientId = patientIdInput.value || 'No-ID';
-                filename = `VDT_results_${patientId}.csv`;
-                csvContent += processPatientData(patientId, tableData, newNoduleCheckbox.checked);
             }
 
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", filename);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-        
-        // --- Init ---
-        function initializeApp() {
-            tableData = [];
-            uniqueRowId = 0;
-            for(let i = 0; i < 4; i++) { addRow(); }
-        }
-        
-        window.onload = function() {
+            function exportToCSV(isExportAll = false) {
+                let csvContent = "data:text/csv;charset=utf-8,";
+                let filename = "VDT_results.csv";
+                
+                const headers = ['PatientID', 'Scan_Order', 'Scan_Date', 'Solid_Volume', 'Solid_Core_Volume', 'Interval_VDT_Solid', 'Interval_Days_Solid', 'Interval_Change_Solid_%', 'Interval_VDT_Core', 'Interval_Days_Core', 'Interval_Change_Core_%'];
+                
+                const processPatientData = (patientId, patientTableData, isNewNodule) => {
+                    let patientCsvString = "";
+                    const dataForCalc = patientTableData
+                        .map(d => ({...d, dateObj: parseDateString(d.date) }))
+                        .filter(d => d.dateObj)
+                        .sort((a, b) => a.dateObj - b.dateObj);
+                    
+                    dataForCalc.forEach((scan, i) => {
+                        let row = [patientId, i === dataForCalc.length - 1 ? 'Scan 0 (Current)' : `Scan -${dataForCalc.length - 1 - i}`];
+                        const solidVol = (isNewNodule && i === 0) ? '15 (Assumed)' : scan.solid;
+                        const coreVol = (isNewNodule && i === 0) ? '15 (Assumed)' : scan.core;
+                        row.push(scan.date, solidVol, coreVol);
+                        
+                        if (i > 0) {
+                            const prevScan = dataForCalc[i-1];
+                            const timeDiff = (scan.dateObj - prevScan.dateObj) / (1000 * 60 * 60 * 24);
+                            const prevSolid = (isNewNodule && i === 1) ? 15 : parseFloat(prevScan.solid);
+                            const prevCore = (isNewNodule && i === 1) ? 15 : parseFloat(prevScan.core);
+
+                            const solidResult = calculateSingleVDT(parseFloat(scan.solid), prevSolid, timeDiff);
+                            const coreResult = calculateSingleVDT(parseFloat(scan.core), prevCore, timeDiff);
+                            const solidValue = solidResult.value ? (isNewNodule && i === 1 ? `${solidResult.value} (max)` : solidResult.value) : '';
+                            const coreValue = coreResult.value ? (isNewNodule && i === 1 ? `${coreResult.value} (max)` : coreResult.value) : '';
+                            row.push(solidValue, solidResult.timeDiff ?? '', solidResult.volumeChange ?? '');
+                            row.push(coreValue, coreResult.timeDiff ?? '', coreResult.volumeChange ?? '');
+                        } else {
+                            row.push('', '', '', '', '', '');
+                        }
+                        patientCsvString += row.join(',') + '\r\n';
+                    });
+                    return patientCsvString;
+                };
+
+                csvContent += headers.join(',') + '\r\n';
+
+                if (isExportAll) {
+                    filename = "VDT_All_Patients_Export.csv";
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key.startsWith('vdt-calc-')) {
+                            const patientId = key.substring(9);
+                            const savedData = JSON.parse(localStorage.getItem(key));
+                            csvContent += processPatientData(patientId, savedData.tableData, savedData.isNewNodule);
+                            csvContent += '\r\n';
+                        }
+                    }
+                } else {
+                    const patientId = patientIdInput.value || 'No-ID';
+                    filename = `VDT_results_${patientId}.csv`;
+                    csvContent += processPatientData(patientId, tableData, newNoduleCheckbox.checked);
+                }
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", filename);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            
+            function copyReport(type, event) {
+                const isNewNodule = newNoduleCheckbox.checked;
+                const dataForCalc = tableData
+                    .map(d => ({...d, dateObj: parseDateString(d.date), solid: parseFloat(d.solid), core: parseFloat(d.core) }))
+                    .filter(d => d.dateObj)
+                    .sort((a, b) => b.dateObj - a.dateObj);
+                
+                if (dataForCalc.length < 1) return;
+
+                let textLines = [];
+                
+                textLines.push(dataForCalc.map((scan, i) => `Scan ${i === 0 ? '0' : `-${i}`}`).join('\t\t'));
+
+                textLines.push(dataForCalc.map((scan, i) => {
+                    const vol = type === 'solid' ? scan.solid : scan.core;
+                    const chronoSorted = [...dataForCalc].sort((a, b) => a.dateObj - b.dateObj);
+                    const isOldestScan = scan.id === chronoSorted[0].id;
+                    if (isNewNodule && isOldestScan) return `15.0 mm³ (A)`;
+                    return isNaN(vol) ? 'N/A' : `${vol.toFixed(1)} mm³`;
+                }).join('\t\t'));
+
+                textLines.push('');
+
+                if (dataForCalc.length > 1) {
+                    let vdtTexts = [];
+                    for (let i = 0; i < dataForCalc.length - 1; i++) {
+                        const currScan = dataForCalc[i];
+                        const prevScan = dataForCalc[i+1];
+                        
+                        const chronoSorted = [...dataForCalc].sort((a, b) => a.dateObj - b.dateObj);
+                        const isFirstInterval = prevScan.id === chronoSorted[0].id && currScan.id === chronoSorted[1].id;
+                        const isMaxCalc = isFirstInterval && isNewNodule;
+                        
+                        const currVol = type === 'solid' ? currScan.solid : currScan.core;
+                        const prevVol = isMaxCalc ? 15 : (type === 'solid' ? prevScan.solid : prevScan.core);
+                        const timeDiff = (currScan.dateObj - prevScan.dateObj) / (1000 * 60 * 60 * 24);
+                        const result = calculateSingleVDT(currVol, prevVol, timeDiff);
+                        
+                        const label = type === 'solid' ? (isMaxCalc ? 'VDTmax' : 'VDT') : (isMaxCalc ? 'VDTcore(max)' : 'VDTcore');
+                        vdtTexts.push(`${label}: ${result.value || 'N/A'}d`);
+                    }
+                    textLines.push('\t' + vdtTexts.join('\t\t'));
+                    textLines.push('');
+                }
+
+                if (dataForCalc.length > 1) {
+                    const chronoSorted = [...dataForCalc].sort((a, b) => a.dateObj - b.dateObj);
+                    const firstForTotal = (isNewNodule && chronoSorted.length > 1) ? chronoSorted[1] : chronoSorted[0];
+                    const last = chronoSorted[chronoSorted.length - 1];
+                    const totalTimeDiff = (last.dateObj - firstForTotal.dateObj) / (1000 * 60 * 60 * 24);
+                    const vol1 = type === 'solid' ? last.solid : last.core;
+                    const vol2 = type === 'solid' ? firstForTotal.solid : firstForTotal.core;
+                    const result = calculateSingleVDT(vol1, vol2, totalTimeDiff);
+                    
+                    const label = type === 'solid' ? 'Total VDT' : 'Total VDTcore';
+                    const totalTabs = '\t'.repeat(Math.floor((dataForCalc.length -1) / 2));
+                    textLines.push(`${totalTabs}${label}: ${result.value || 'N/A'}d`);
+                }
+                
+                const finalString = textLines.join('\n');
+
+                const textarea = document.createElement('textarea');
+                textarea.value = finalString;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+
+                const targetButton = event.target;
+                const originalText = targetButton.textContent;
+                targetButton.textContent = 'Copied!';
+                targetButton.style.backgroundColor = '#27ae60';
+                setTimeout(() => {
+                    targetButton.textContent = originalText;
+                    targetButton.style.backgroundColor = '#3498db';
+                }, 2000);
+            }
+            
+            // --- Init ---
+            function initializeApp() {
+                tableData = [];
+                uniqueRowId = 0;
+                for(let i = 0; i < 4; i++) { addRow(); }
+            }
+            
+            // Register Chart.js plugins globally
             if (window.ChartDataLabels) Chart.register(ChartDataLabels);
             if (window.ChartAnnotation) Chart.register(window.ChartAnnotation);
-
+            
             addRowBtn.addEventListener('click', () => addRow());
             removeRowBtn.addEventListener('click', removeRow);
             clearBtn.addEventListener('click', clearAll);
@@ -729,8 +1007,9 @@
             patientIdInput.addEventListener('blur', loadData);
             sortOrderSelect.addEventListener('change', renderTable);
             newNoduleCheckbox.addEventListener('change', calculateAll);
+            predictionCheckbox.addEventListener('change', calculateAll);
             logScaleCheckbox.addEventListener('change', calculateAll);
-
+            
             initializeApp();
         };
     </script>
