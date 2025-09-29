@@ -91,7 +91,7 @@
         .remove-row-btn { background-color: #e74c3c; }
         .remove-row-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; opacity: 0.6; }
         
-        .sort-control, .new-nodule-control { display: flex; align-items: center; gap: 8px; }
+        .sort-control, .new-nodule-control { display: flex; align-items: center; gap: 8px; vertical-align: middle; }
         .sort-control label, .new-nodule-control label { font-weight: 500; }
         .sort-control select { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; }
         .new-nodule-control input[type="checkbox"] { width: 18px; height: 18px; }
@@ -171,6 +171,44 @@
         .extra-info { font-size: 0.8em; font-weight: normal; color: #555; display: block; margin-top: 4px; }
         .result-cell strong, .total-result-box strong { font-weight: 900; }
         .hidden { display: none !important; }
+
+        /* Tooltip Styles */
+        .tooltip-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #7f8c8d;
+            color: white;
+            font-size: 11px;
+            line-height: 16px;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            margin-left: 2px;
+            vertical-align: super; /* Makes it a superscript */
+        }
+        .tooltip-text {
+            visibility: hidden;
+            width: 280px;
+            background-color: #34495e;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.3s, visibility 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        .tooltip-text.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
     </style>
 </head>
 <body>
@@ -196,18 +234,22 @@
                         <option value="newest_first" selected>Newest First</option>
                         <option value="oldest_first">Oldest First</option>
                     </select>
+                    <span class="tooltip-icon" data-tooltip="Changes the sort order of the scan data in the table. 'Newest First' places the most recent scan at the top, while 'Oldest First' does the opposite.">?</span>
                 </div>
                 <div class="new-nodule-control">
                     <input type="checkbox" id="new-nodule-checkbox">
                     <label for="new-nodule-checkbox">New Nodule (VDTmax)</label>
+                    <span class="tooltip-icon" data-tooltip="For newly discovered nodules with no prior scan history. When checked, the calculator assumes a pre-discovery volume of 15mm³ to calculate the maximum possible VDT (VDTmax) for the first follow-up interval.">?</span>
                 </div>
                 <div class="new-nodule-control">
                     <input type="checkbox" id="log-scale-checkbox">
                     <label for="log-scale-checkbox">Log Scale (Y-Axis)</label>
+                    <span class="tooltip-icon" data-tooltip="Switches the chart's Y-axis (Volume) to a logarithmic scale. This is useful for visualizing growth trends more clearly when volume changes are large (e.g., from tens to thousands).">?</span>
                 </div>
                 <div class="new-nodule-control">
                     <input type="checkbox" id="prediction-checkbox">
                     <label for="prediction-checkbox">Prediction</label>
+                    <span class="tooltip-icon" data-tooltip="Based on the existing data and the calculated total VDT, this feature projects and displays the nodule's potential volume at 3 months and 1 year in the future on the chart, helping to assess its growth trajectory.">?</span>
                 </div>
             </div>
             <div class="main-actions">
@@ -266,11 +308,54 @@
             const logScaleCheckbox = document.getElementById('log-scale-checkbox');
             const predictionCheckbox = document.getElementById('prediction-checkbox');
             const chartCanvas = document.getElementById('volumeChart');
+            const container = document.querySelector('.container');
+            let tooltipDiv = null;
             
             let uniqueRowId = 0;
             let tableData = [];
             let isPasting = false;
             let volumeChart = null;
+
+            // --- Tooltip Functions ---
+            function createTooltip() {
+                if (!tooltipDiv) {
+                    tooltipDiv = document.createElement('div');
+                    tooltipDiv.className = 'tooltip-text';
+                    container.appendChild(tooltipDiv);
+                }
+            }
+
+            function showTooltip(target, text) {
+                if (!tooltipDiv) createTooltip();
+                
+                tooltipDiv.innerHTML = text;
+                tooltipDiv.classList.add('visible'); // Make it visible first to calculate its size
+
+                const rect = target.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                
+                let top = rect.top - containerRect.top - tooltipDiv.offsetHeight - 10;
+                let left = rect.left - containerRect.left + (rect.width / 2) - (tooltipDiv.offsetWidth / 2);
+
+                if (top < 0) {
+                    top = rect.bottom - containerRect.top + 10;
+                }
+                if (left < 0) {
+                    left = 5;
+                }
+                if (left + tooltipDiv.offsetWidth > container.clientWidth) {
+                    left = container.clientWidth - tooltipDiv.offsetWidth - 5;
+                }
+
+                tooltipDiv.style.top = `${top}px`;
+                tooltipDiv.style.left = `${left}px`;
+            }
+
+            function hideTooltip() {
+                if (tooltipDiv) {
+                    tooltipDiv.classList.remove('visible');
+                }
+            }
 
             // --- Core Functions (renderTable, updateScanNumbers, etc.) ---
             function renderTable() {
@@ -938,8 +1023,9 @@
                     const vol2 = type === 'solid' ? firstForTotal.solid : firstForTotal.core;
                     const result = calculateSingleVDT(vol1, vol2, totalTimeDiff);
                     
-                    const label = type === 'solid' ? 'Total VDT' : 'Total VDTcore';
-                    html += `<tr><td colspan="${numCols}" style="${cellStyle}">${label}: ${result.value || 'N/A'}d</td></tr>`;
+                    let label = type === 'solid' ? 'Total VDT' : 'Total VDT<sub>core</sub>';
+                    const totalVdtDisplay = result.value ? `<b>${result.value}d</b>` : 'N/A';
+                    html += `<tr><td colspan="${numCols}" style="${cellStyle}">${label}: ${totalVdtDisplay}</td></tr>`;
                 }
 
                 // --- Row 2 & 3: Scans and Volumes with separator columns ---
@@ -980,10 +1066,22 @@
                         const timeDiff = (currScan.dateObj - prevScan.dateObj) / (1000 * 60 * 60 * 24);
                         const result = calculateSingleVDT(currVol, prevVol, timeDiff);
                         
-                        const label = type === 'solid' ? 'VDT' : 'VDTcore';
-                        const maxLabel = isMaxCalc ? '(max)' : '';
+                        let label = type === 'solid' ? 'VDT' : 'VDT<sub>core</sub>';
+                        if (isMaxCalc) {
+                            label += '<sub>(max)</sub>';
+                        }
+                        
+                        let vdtDisplay = result.value ? `${result.value}d` : 'N/A';
+                        if (result.value && result.value !== 'Stable') {
+                            const vdtNum = parseFloat(result.value);
+                            if (vdtNum > 0 && vdtNum <= 400) {
+                                vdtDisplay = `<b style="color: red;">${vdtDisplay}</b>`;
+                            } else if (vdtNum > 400 && vdtNum <= 600) {
+                                vdtDisplay = `<b style="color: orange;">${vdtDisplay}</b>`;
+                            }
+                        }
 
-                        row4_intervals += `<td style="${cellStyle}">${label}${maxLabel}: ${result.value || 'N/A'}d</td>`;
+                        row4_intervals += `<td style="${cellStyle}">${label}: ${vdtDisplay}</td>`;
                     }
                     row4_intervals += `<td style="${emptyCellStyle}">&nbsp;</td>`;
                     html += row4_intervals + `</tr>`;
@@ -1035,8 +1133,9 @@
                 }
             }
             
-            // --- Init ---
+            // --- Init & Event Listeners ---
             function initializeApp() {
+                createTooltip(); // Create the tooltip div on init
                 tableData = [];
                 uniqueRowId = 0;
                 for(let i = 0; i < 4; i++) { addRow(); }
@@ -1062,10 +1161,24 @@
             newNoduleCheckbox.addEventListener('change', calculateAll);
             predictionCheckbox.addEventListener('change', calculateAll);
             logScaleCheckbox.addEventListener('change', calculateAll);
+
+            // Tooltip event listener
+            document.addEventListener('mouseover', function(event) {
+                if (event.target.classList.contains('tooltip-icon')) {
+                    const text = event.target.dataset.tooltip;
+                    showTooltip(event.target, text);
+                }
+            });
+            document.addEventListener('mouseout', function(event) {
+                if (event.target.classList.contains('tooltip-icon')) {
+                    hideTooltip();
+                }
+            });
             
             initializeApp();
         };
     </script>
 </body>
 </html>
+
 
