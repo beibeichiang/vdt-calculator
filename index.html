@@ -1024,7 +1024,21 @@
                     const result = calculateSingleVDT(vol1, vol2, totalTimeDiff);
                     
                     let label = type === 'solid' ? 'Total VDT' : 'Total VDT<sub>core</sub>';
-                    const totalVdtDisplay = result.value ? `<b>${result.value}d</b>` : 'N/A';
+                    let totalVdtDisplay = result.value ? `${result.value}d` : 'N/A';
+
+                    if (result.value && result.value !== 'Stable') {
+                        const vdtNum = parseFloat(result.value);
+                        if (vdtNum > 0 && vdtNum <= 400) {
+                            totalVdtDisplay = `<b style="color: red;">${totalVdtDisplay}</b>`;
+                        } else if (vdtNum > 400 && vdtNum <= 600) {
+                            totalVdtDisplay = `<b style="color: orange;">${totalVdtDisplay}</b>`;
+                        } else {
+                            totalVdtDisplay = `<b>${totalVdtDisplay}</b>`;
+                        }
+                    } else {
+                         totalVdtDisplay = `<b>${totalVdtDisplay}</b>`;
+                    }
+
                     html += `<tr><td colspan="${numCols}" style="${cellStyle}">${label}: ${totalVdtDisplay}</td></tr>`;
                 }
 
@@ -1180,5 +1194,4 @@
     </script>
 </body>
 </html>
-
 
