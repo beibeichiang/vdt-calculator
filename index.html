@@ -9,6 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <!-- Add SortableJS for drag-and-drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -107,7 +109,6 @@
             border: 1px solid #ddd;
             padding: 10px;
             text-align: center;
-            min-width: 150px;
         }
         .data-table th {
             background-color: #3498db;
@@ -125,6 +126,7 @@
             border-radius: 4px;
             box-sizing: border-box;
             text-align: center;
+            min-width: 120px;
         }
         
         .total-results-container, .prediction-results-container {
@@ -208,6 +210,41 @@
             visibility: visible;
             opacity: 1;
         }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        /* Drag and Drop Styles */
+        .drag-handle {
+            cursor: grab;
+            font-size: 20px;
+            color: #95a5a6;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        .delete-row-btn {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+        .row-controls {
+            width: 30px;
+            min-width: 30px;
+            padding: 0 5px;
+        }
+        .scan-number-col {
+            width: 60px;
+            min-width: 60px;
+        }
 
     </style>
 </head>
@@ -226,15 +263,14 @@
 
         <div class="table-controls">
             <div class="left-controls">
-                <button class="control-btn add-row-btn compact-btn" id="add-row-btn">+</button>
-                <button class="control-btn remove-row-btn compact-btn" id="remove-row-btn">-</button>
+                <button class="control-btn add-row-btn" id="add-scan-btn">+ Add Scan</button>
                 <div class="sort-control">
-                    <label for="sort-order">Order:</label>
+                    <label for="sort-order">Display Order:</label>
                     <select id="sort-order">
                         <option value="newest_first" selected>Newest First</option>
                         <option value="oldest_first">Oldest First</option>
                     </select>
-                    <span class="tooltip-icon" data-tooltip="Changes the sort order of the scan data in the table. 'Newest First' places the most recent scan at the top, while 'Oldest First' does the opposite.">?</span>
+                    <span class="tooltip-icon" data-tooltip="Changes the display order of the scan data in the table. The actual scan numbering (Scan 0, -1, etc.) is always based on the chronological date, regardless of this setting.">?</span>
                 </div>
                 <div class="new-nodule-control">
                     <input type="checkbox" id="new-nodule-checkbox">
@@ -263,7 +299,8 @@
             <table class="data-table" id="data-table">
                 <thead>
                     <tr>
-                        <th>Scan #</th>
+                        <th class="row-controls"></th>
+                        <th class="scan-number-col">Scan #</th>
                         <th>Scan Date</th>
                         <th>Solid (mm³)</th>
                         <th>Solid core (mm³)</th>
@@ -294,8 +331,7 @@
         window.onload = function() {
             // --- Global variables ---
             const tableBody = document.getElementById('table-body');
-            const addRowBtn = document.getElementById('add-row-btn');
-            const removeRowBtn = document.getElementById('remove-row-btn');
+            const addScanBtn = document.getElementById('add-scan-btn');
             const clearBtn = document.getElementById('clear-btn');
             const saveBtn = document.getElementById('save-btn');
             const exportBtn = document.getElementById('export-btn');
@@ -310,6 +346,7 @@
             const chartCanvas = document.getElementById('volumeChart');
             const container = document.querySelector('.container');
             let tooltipDiv = null;
+            let sortableInstance = null;
             
             let uniqueRowId = 0;
             let tableData = [];
@@ -372,7 +409,11 @@
                     const tr = document.createElement('tr');
                     tr.dataset.id = dataRow.id;
                     tr.innerHTML = `
-                        <td class="scan-number">-</td>
+                        <td class="row-controls">
+                            <span class="drag-handle">⠿</span>
+                            <button class="delete-row-btn" title="Delete this row">-</button>
+                        </td>
+                        <td class="scan-number scan-number-col">-</td>
                         <td><input type="text" class="date-input" value="${dataRow.date}"></td>
                         <td><input type="number" class="solid-input" value="${dataRow.solid}"></td>
                         <td><input type="number" class="core-input" value="${dataRow.core}"></td>
@@ -381,37 +422,65 @@
                     `;
                     tableBody.appendChild(tr);
                 });
-
+                
+                initializeSortable();
                 bindEventListeners();
                 updateScanNumbers();
                 calculateAll();
             }
 
+            function initializeSortable() {
+                if (sortableInstance) {
+                    sortableInstance.destroy();
+                }
+                sortableInstance = new Sortable(tableBody, {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    onEnd: function (evt) {
+                        const newOrderedIds = Array.from(tableBody.querySelectorAll('tr')).map(tr => parseInt(tr.dataset.id));
+                        
+                        // Reorder the master tableData array to match the new visual order
+                        tableData.sort((a, b) => newOrderedIds.indexOf(a.id) - newOrderedIds.indexOf(b.id));
+
+                        // Recalculate everything. This automatically handles re-numbering scans.
+                        calculateAll(); 
+                    },
+                });
+            }
+
             function updateScanNumbers() {
-                const sortOrder = sortOrderSelect.value;
+                // We need to calculate based on the true chronological order, not the display order
+                const chronoData = [...tableData]
+                    .map(d => ({...d, dateObj: parseDateString(d.date)}))
+                    .filter(d => d.dateObj)
+                    .sort((a, b) => b.dateObj - a.dateObj); // Newest date first
+
                 const rows = tableBody.querySelectorAll('tr');
-                rows.forEach((row, i) => {
+                rows.forEach(row => {
+                    const rowId = parseInt(row.dataset.id);
+                    const chronoIndex = chronoData.findIndex(d => d.id === rowId);
+                    
                     const scanNumCell = row.querySelector('.scan-number');
-                    if (sortOrder === 'newest_first') {
-                        scanNumCell.textContent = i === 0 ? 'Scan 0 (Current)' : `Scan -${i}`;
+                    if (chronoIndex !== -1) {
+                         scanNumCell.textContent = chronoIndex === 0 ? 'Scan 0' : `Scan -${chronoIndex}`;
                     } else {
-                        scanNumCell.textContent = `Scan -${rows.length - 1 - i}`;
-                        if (i === rows.length - 1) scanNumCell.textContent = 'Scan 0 (Current)';
+                        scanNumCell.textContent = '-'; // No date, no number
                     }
                 });
             }
             
-            function updateButtonStates() { removeRowBtn.disabled = tableData.length <= 2; }
-            function addRow() { tableData.push({ id: uniqueRowId++, date: '', solid: '', core: '' }); renderTable(); updateButtonStates(); }
+            function addScan() {
+                tableData.push({ id: uniqueRowId++, date: '', solid: '', core: '' });
+                renderTable();
+            }
 
-            function removeRow() {
-                if (tableData.length > 2) {
-                    const lastAddedId = Math.max(...tableData.map(d => d.id));
-                    tableData = tableData.filter(d => d.id !== lastAddedId);
+            function deleteRow(rowId) {
+                if (tableData.length > 0) {
+                    tableData = tableData.filter(d => d.id !== rowId);
                     renderTable();
-                    updateButtonStates();
                 }
             }
+
 
             function clearAll() {
                 patientIdInput.value = '';
@@ -515,10 +584,13 @@
 
             function bindEventListeners() {
                 tableBody.querySelectorAll('tr').forEach(tr => {
+                    const rowId = parseInt(tr.dataset.id);
                     tr.querySelector('.date-input').addEventListener('input', (e) => updateData(e, 'date'));
                     tr.querySelector('.solid-input').addEventListener('input', (e) => updateData(e, 'solid'));
                     tr.querySelector('.core-input').addEventListener('input', (e) => updateData(e, 'core'));
                     
+                    tr.querySelector('.delete-row-btn').addEventListener('click', () => deleteRow(rowId));
+
                     const dateInput = tr.querySelector('.date-input');
                     dateInput.addEventListener('blur', (e) => { format_date(e); updateData(e, 'date'); });
                     dateInput.addEventListener('focus', unformat_date);
@@ -602,8 +674,8 @@
                         firstIntervalSolidResult = solidResult;
                         firstIntervalCoreResult = coreResult;
                     }
-
-                    const targetRow = document.querySelector(`tr[data-id="${currScan.id}"]`);
+                    
+                    const targetRow = Array.from(tableBody.querySelectorAll('tr')).find(row => parseInt(row.dataset.id) === currScan.id);
                     if(targetRow){
                         targetRow.querySelector('.vdt-solid-result').innerHTML = createResultHTML(solidResult, isMaxCalc);
                         targetRow.querySelector('.vdt-core-result').innerHTML = createResultHTML(coreResult, isMaxCalc);
@@ -680,6 +752,7 @@
                 }
 
                 renderChart(dataForCalc, totalSolidResult, totalCoreResult);
+                updateScanNumbers();
             }
 
             function renderChart(data, totalSolidResult, totalCoreResult) {
@@ -1035,7 +1108,7 @@
                         } else {
                             totalVdtDisplay = `<b>${totalVdtDisplay}</b>`;
                         }
-                    } else {
+                    } else if (result.value) { // Handles "Stable" case
                          totalVdtDisplay = `<b>${totalVdtDisplay}</b>`;
                     }
 
@@ -1152,15 +1225,14 @@
                 createTooltip(); // Create the tooltip div on init
                 tableData = [];
                 uniqueRowId = 0;
-                for(let i = 0; i < 4; i++) { addRow(); }
+                for(let i = 0; i < 4; i++) { addScan(); }
             }
             
             // Register Chart.js plugins globally
             if (window.ChartDataLabels) Chart.register(ChartDataLabels);
             if (window.ChartAnnotation) Chart.register(window.ChartAnnotation);
             
-            addRowBtn.addEventListener('click', () => addRow());
-            removeRowBtn.addEventListener('click', removeRow);
+            addScanBtn.addEventListener('click', addScan);
             clearBtn.addEventListener('click', clearAll);
             saveBtn.addEventListener('click', saveData);
             exportBtn.addEventListener('click', () => exportToCSV(true));
