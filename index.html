@@ -957,36 +957,115 @@
                 }
                 
                 const annotations = [];
-                // Interval Annotations (simplified for brevity, you would extend this)
-                // ...
                 
                 const datasets = [
                     {
                         label: 'Solid',
                         data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.solid) ? null : d.solid })),
                         borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.5)', tension: 0.1,
-                        datalabels: { align: 'top', /* ... */ }
+                        datalabels: { 
+                            align: 'top', 
+                            formatter: (value, context) => {
+                                const index = context.dataIndex;
+                                const totalPoints = chartData.length;
+                                if (index >= totalPoints) return null;
+                                if ((index === 0 || index === totalPoints - 1) && totalPoints > 2) return null;
+                                
+                                const chronoData = [...tableData].map(d => ({...d, dateObj: parseDateString(d.date)})).filter(d => d.dateObj).sort((a, b) => b.dateObj - a.dateObj);
+                                const currentDataPoint = chartData[index];
+                                const chronoIndex = chronoData.findIndex(d => d.id === currentDataPoint.id);
+                                const scanNumber = chronoIndex === 0 ? 'Scan 0' : `Scan -${chronoIndex}`;
+                                const volumeText = (isNewNodule && index === 0) ? `15.0 mm³ (A)` : `${value.y.toFixed(1)} mm³`;
+                                return `${scanNumber}\n${volumeText}`;
+                            }
+                        }
                     },
                     {
                         label: 'Solid core',
                         data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.core) ? null : d.core })),
                         borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)', tension: 0.1,
-                         datalabels: { align: 'bottom', /* ... */ }
+                        datalabels: { 
+                             align: 'bottom',
+                             formatter: (value, context) => {
+                                const index = context.dataIndex;
+                                const totalPoints = chartData.length;
+                                if (index >= totalPoints) return null;
+                                if ((index === 0 || index === totalPoints - 1) && totalPoints > 2) return null;
+
+                                const chronoData = [...tableData].map(d => ({...d, dateObj: parseDateString(d.date)})).filter(d => d.dateObj).sort((a, b) => b.dateObj - a.dateObj);
+                                const currentDataPoint = chartData[index];
+                                const chronoIndex = chronoData.findIndex(d => d.id === currentDataPoint.id);
+                                const scanNumber = chronoIndex === 0 ? 'Scan 0' : `Scan -${chronoIndex}`;
+                                const volumeText = (isNewNodule && index === 0) ? `15.0 mm³ (A)` : `${value.y.toFixed(1)} mm³`;
+                                return `${scanNumber}\n${volumeText}`;
+                            }
+                        }
                     },
                     {
                         label: 'Non-solid',
                         data: chartData.map(d => ({ x: d.dateObj, y: isNaN(d.nonsolid) ? null : d.nonsolid })),
                         borderColor: 'rgb(40, 167, 69)', backgroundColor: 'rgba(40, 167, 69, 0.5)', tension: 0.1,
-                         datalabels: { align: 'center', /* ... */ }
+                        datalabels: { 
+                            align: 'center',
+                            formatter: (value, context) => {
+                                const index = context.dataIndex;
+                                const totalPoints = chartData.length;
+                                if (index >= totalPoints) return null;
+                                if ((index === 0 || index === totalPoints - 1) && totalPoints > 2) return null;
+
+                                const chronoData = [...tableData].map(d => ({...d, dateObj: parseDateString(d.date)})).filter(d => d.dateObj).sort((a, b) => b.dateObj - a.dateObj);
+                                const currentDataPoint = chartData[index];
+                                const chronoIndex = chronoData.findIndex(d => d.id === currentDataPoint.id);
+                                const scanNumber = chronoIndex === 0 ? 'Scan 0' : `Scan -${chronoIndex}`;
+                                const volumeText = (isNewNodule && index === 0) ? `15.0 mm³ (A)` : `${value.y.toFixed(1)} mm³`;
+                                return `${scanNumber}\n${volumeText}`;
+                            }
+                        }
                     }
                 ];
 
-                // Add Total VDT and Prediction datasets
-                // ... (This part needs to be extended to include nonsolid)
+                if(validDataPoints.length > 1) {
+                    const firstForTotal = (isNewNodule && chartData.length > 1) ? chartData[1] : chartData[0];
+                    const last = chartData[chartData.length-1];
 
+                    datasets.push({ label: 'Total Trend (Solid)', data: [{x: firstForTotal.dateObj, y: firstForTotal.solid}, {x: last.dateObj, y: last.solid}], borderColor: 'rgba(54, 162, 235, 0.5)', borderDash: [6, 6], pointRadius: 0, datalabels: { display: false } });
+                    datasets.push({ label: 'Total Trend (Core)', data: [{x: firstForTotal.dateObj, y: firstForTotal.core}, {x: last.dateObj, y: last.core}], borderColor: 'rgba(255, 99, 132, 0.5)', borderDash: [6, 6], pointRadius: 0, datalabels: { display: false } });
+                    datasets.push({ label: 'Total Trend (Non-solid)', data: [{x: firstForTotal.dateObj, y: firstForTotal.nonsolid}, {x: last.dateObj, y: last.nonsolid}], borderColor: 'rgba(40, 167, 69, 0.5)', borderDash: [6, 6], pointRadius: 0, datalabels: { display: false } });
+
+                    if(usePrediction) {
+                         let vdtForSolidPrediction = totalSolidResult;
+                         let vdtForCorePrediction = totalCoreResult;
+                         let vdtForGgoPrediction = totalGgoResult;
+
+                         if (isNewNodule && chartData.length === 2) {
+                            vdtForSolidPrediction = firstIntervalSolidResult;
+                            vdtForCorePrediction = firstIntervalCoreResult;
+                            vdtForGgoPrediction = firstIntervalGgoResult;
+                         }
+
+                        const predict = (vdtResult, lastVol) => {
+                            if (!vdtResult || !vdtResult.value || vdtResult.value === 'Stable' || isNaN(lastVol)) return { m3: null, y1: null };
+                            const vdt = parseFloat(vdtResult.value);
+                            if (vdt <= 0) return { m3: null, y1: null };
+                            return { m3: lastVol * Math.pow(2, 90 / vdt), y1: lastVol * Math.pow(2, 365 / vdt) };
+                        };
+                        
+                        const solidPrediction = predict(vdtForSolidPrediction, last.solid);
+                        const corePrediction = predict(vdtForCorePrediction, last.core);
+                        const ggoPrediction = predict(vdtForGgoPrediction, last.nonsolid);
+                        
+                        const date3m = new Date(last.dateObj); date3m.setDate(date3m.getDate() + 90);
+                        const date1y = new Date(last.dateObj); date1y.setDate(date1y.getDate() + 365);
+                        
+                        datasets.push({ label: 'Solid Prediction', data: [{x: last.dateObj, y: last.solid}, {x: date3m, y: solidPrediction.m3}, {x: date1y, y: solidPrediction.y1}], borderColor: 'rgb(54, 162, 235)', borderDash: [6, 6], tension: 0.1, backgroundColor: 'transparent', datalabels: { /* ... */ } });
+                        datasets.push({ label: 'Core Prediction', data: [{x: last.dateObj, y: last.core}, {x: date3m, y: corePrediction.m3}, {x: date1y, y: corePrediction.y1}], borderColor: 'rgb(255, 99, 132)', borderDash: [6, 6], tension: 0.1, backgroundColor: 'transparent', datalabels: { /* ... */ } });
+                        datasets.push({ label: 'Non-solid Prediction', data: [{x: last.dateObj, y: last.nonsolid}, {x: date3m, y: ggoPrediction.m3}, {x: date1y, y: ggoPrediction.y1}], borderColor: 'rgb(40, 167, 69)', borderDash: [6, 6], tension: 0.1, backgroundColor: 'transparent', datalabels: { /* ... */ } });
+                    }
+                }
+                
                 const allVolumes = datasets.flatMap(ds => ds.data.map(p => p.y)).filter(v => v !== null && !isNaN(v));
-                let yMin = Math.min(...allVolumes);
-                let yMax = Math.max(...allVolumes);
+                let yMin = allVolumes.length > 0 ? Math.min(...allVolumes) : 0;
+                let yMax = allVolumes.length > 0 ? Math.max(...allVolumes) : 100;
                 const padding = (yMax - yMin) * 0.2 || 10;
                 yMin = yMin > padding ? yMin - padding : 0;
                 yMax = yMax + padding;
@@ -994,7 +1073,46 @@
                 volumeChart = new Chart(chartCanvas, {
                     type: 'line',
                     data: { datasets },
-                    options: { /* ... options ... */ }
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    filter: function(item, chart) {
+                                        return !item.text.includes('Trend') && !item.text.includes('Prediction');
+                                    }
+                                }
+                            },
+                            title: { display: true, text: 'Volume Change Over Time' },
+                            datalabels: {
+                                backgroundColor: '#fff', borderRadius: 4, borderWidth: 1, borderColor: '#ccc',
+                                padding: 4, font: { size: 10, weight: 'bold' }, textAlign: 'center'
+                            },
+                            annotation: { annotations: annotations },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        const date = new Date(context[0].parsed.x);
+                                        return date.toISOString().split('T')[0];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: { unit: 'day', tooltipFormat: 'yyyy-MM-dd', displayFormats: { day: 'yyyy-MM-dd' } },
+                                ticks: { source: 'data', autoSkip: true, maxRotation: 45, minRotation: 45 },
+                                title: { display: true, text: 'Date' }
+                            },
+                            y: { 
+                                type: useLogScale ? 'logarithmic' : 'linear',
+                                min: yMin,
+                                max: yMax, 
+                                title: { display: true, text: 'Volume (mm³)' } 
+                            }
+                        }
+                    }
                 });
             }
 
@@ -1014,14 +1132,12 @@
                 const numScans = dataForCalc.length;
                 const numCols = numScans > 1 ? numScans * 2 - 1 : 1;
                 
-                // --- Define Styles ---
                 const tableStyle = `font-family: Arial; font-size: 11pt; border-collapse: collapse; border-spacing: 0; border: none; background-color: transparent; table-layout: fixed; width: ${numCols * 100}px;`;
                 const cellStyle = `color: white; background-color: transparent; border: none; padding: 0.01in; text-align: center; height: 1em; line-height: 1.1;`;
                 const emptyCellStyle = `border: none; padding: 0.01in; background-color: transparent;`;
 
                 let html = `<table style="${tableStyle}">`;
 
-                // --- Row 1: Total VDT ---
                 if (numScans > 1) {
                     const chronoSortedTotal = [...dataForCalc].sort((a, b) => a.dateObj - b.dateObj);
                     const firstForTotal = (isNewNodule && chronoSortedTotal.length > 1) ? chronoSortedTotal[1] : chronoSortedTotal[0];
@@ -1030,56 +1146,40 @@
                     
                     let vol1, vol2, label;
                     if (type === 'solid') {
-                        vol1 = last.solid;
-                        vol2 = firstForTotal.solid;
-                        label = 'Total VDT';
+                        vol1 = last.solid; vol2 = firstForTotal.solid; label = 'Total VDT';
                     } else if (type === 'core') {
-                        vol1 = last.core;
-                        vol2 = firstForTotal.core;
-                        label = 'Total VDT<sub>core</sub>';
+                        vol1 = last.core; vol2 = firstForTotal.core; label = 'Total VDT<sub>core</sub>';
                     } else { // nonsolid
-                        vol1 = last.nonsolid;
-                        vol2 = firstForTotal.nonsolid;
-                        label = 'Total VDT<sub>GGO</sub>';
+                        vol1 = last.nonsolid; vol2 = firstForTotal.nonsolid; label = 'Total VDT<sub>GGO</sub>';
                     }
 
                     const result = calculateSingleVDT(vol1, vol2, totalTimeDiff);
-                    
                     let totalVdtDisplay = result.value ? `${result.value}d` : 'N/A';
-
                     if (result.value && result.value !== 'Stable') {
                         const vdtNum = parseFloat(result.value);
-                        if (vdtNum > 0 && vdtNum <= 400) {
-                            totalVdtDisplay = `<b style="color: red;">${totalVdtDisplay}</b>`;
-                        } else if (vdtNum > 400 && vdtNum <= 600) {
-                            totalVdtDisplay = `<b style="color: orange;">${totalVdtDisplay}</b>`;
-                        } else {
-                            totalVdtDisplay = `<b>${totalVdtDisplay}</b>`;
-                        }
-                    } else if (result.value) { // Handles "Stable" case
-                         totalVdtDisplay = `<b>${totalVdtDisplay}</b>`;
-                    }
-
+                        if (vdtNum > 0 && vdtNum <= 400) totalVdtDisplay = `<b style="color: red;">${totalVdtDisplay}</b>`;
+                        else if (vdtNum > 400 && vdtNum <= 600) totalVdtDisplay = `<b style="color: orange;">${totalVdtDisplay}</b>`;
+                        else totalVdtDisplay = `<b>${totalVdtDisplay}</b>`;
+                    } else if (result.value) { totalVdtDisplay = `<b>${totalVdtDisplay}</b>`; }
                     html += `<tr><td colspan="${numCols}" style="${cellStyle}">${label}: ${totalVdtDisplay}</td></tr>`;
                 }
 
-                // --- Row 2 & 3: Scans and Volumes with separator columns ---
                 let row2_scans = `<tr>`;
                 let row3_volumes = `<tr>`;
                 const chronoSorted = [...dataForCalc].sort((a, b) => a.dateObj - b.dateObj);
+                
+                const chronoSortedForNumbering = [...tableData].map(d => ({...d, dateObj: parseDateString(d.date)})).filter(d => d.dateObj).sort((a,b) => b.dateObj - a.dateObj);
 
                 dataForCalc.forEach((scan, i) => {
-                    const scanNumber = `Scan ${i === 0 ? '0' : `-${i}`}`;
+                    const chronoIndex = chronoSortedForNumbering.findIndex(s => s.id === scan.id);
+                    const scanNumber = chronoIndex === 0 ? 'Scan 0' : `Scan -${chronoIndex}`;
+
                     row2_scans += `<td style="${cellStyle}">${scanNumber}</td>`;
                     
                     let vol;
-                    if (type === 'solid') {
-                        vol = scan.solid;
-                    } else if (type === 'core') {
-                        vol = scan.core;
-                    } else { // nonsolid
-                        vol = scan.nonsolid;
-                    }
+                    if (type === 'solid') vol = scan.solid;
+                    else if (type === 'core') vol = scan.core;
+                    else vol = scan.nonsolid;
 
                     const isOldestScan = scan.id === chronoSorted[0].id;
                     const volText = (isNewNodule && isOldestScan) ? `15 mm³ (A)` : (isNaN(vol) ? 'N/A' : `${vol.toFixed(0)} mm³`);
@@ -1092,65 +1192,45 @@
                 });
                 html += row2_scans + `</tr>` + row3_volumes + `</tr>`;
 
-                // --- Row 4: Interval VDTs in separator columns ---
                 if (numScans > 1) {
                     let row4_intervals = `<tr>`;
                     for (let i = 0; i < numScans - 1; i++) {
-                        const currScan = dataForCalc[i]; // Newer scan
-                        const prevScan = dataForCalc[i + 1]; // Older scan
-                        
+                        const currScan = dataForCalc[i];
+                        const prevScan = dataForCalc[i + 1];
                         row4_intervals += `<td style="${emptyCellStyle}">&nbsp;</td>`;
 
                         const isFirstChronologicalInterval = (prevScan.id === chronoSorted[0].id && currScan.id === chronoSorted[1].id);
                         const isMaxCalc = isFirstChronologicalInterval && isNewNodule;
                         
-                        let currVol, prevVol;
-                        if (type === 'solid') {
-                            currVol = currScan.solid;
-                            prevVol = isMaxCalc ? 15 : prevScan.solid;
+                        let currVol, prevVol, label;
+                         if (type === 'solid') {
+                            currVol = currScan.solid; prevVol = isMaxCalc ? 15 : prevScan.solid; label = 'VDT';
                         } else if (type === 'core') {
-                            currVol = currScan.core;
-                            prevVol = isMaxCalc ? 15 : prevScan.core;
+                            currVol = currScan.core; prevVol = isMaxCalc ? 15 : prevScan.core; label = 'VDT<sub>core</sub>';
                         } else { // nonsolid
-                            currVol = currScan.nonsolid;
-                            prevVol = isMaxCalc ? 15 : prevScan.nonsolid;
+                            currVol = currScan.nonsolid; prevVol = isMaxCalc ? 15 : prevScan.nonsolid; label = 'VDT<sub>GGO</sub>';
                         }
-
+                        if (isMaxCalc) label += '<sub>(max)</sub>';
+                        
                         const timeDiff = (currScan.dateObj - prevScan.dateObj) / (1000 * 60 * 60 * 24);
                         const result = calculateSingleVDT(currVol, prevVol, timeDiff);
-                        
-                        let label;
-                        if (type === 'solid') {
-                            label = 'VDT';
-                        } else if (type === 'core') {
-                            label = 'VDT<sub>core</sub>';
-                        } else { // nonsolid
-                            label = 'VDT<sub>GGO</sub>';
-                        }
-                        if (isMaxCalc) {
-                            label += '<sub>(max)</sub>';
-                        }
                         
                         let vdtDisplay = result.value ? `${result.value}d` : 'N/A';
                         if (result.value && result.value !== 'Stable') {
                             const vdtNum = parseFloat(result.value);
-                            if (vdtNum > 0 && vdtNum <= 400) {
-                                vdtDisplay = `<b style="color: red;">${vdtDisplay}</b>`;
-                            } else if (vdtNum > 400 && vdtNum <= 600) {
-                                vdtDisplay = `<b style="color: orange;">${vdtDisplay}</b>`;
-                            }
+                            if (vdtNum > 0 && vdtNum <= 400) vdtDisplay = `<b style="color: red;">${vdtDisplay}</b>`;
+                            else if (vdtNum > 400 && vdtNum <= 600) vdtDisplay = `<b style="color: orange;">${vdtDisplay}</b>`;
                         }
-
                         row4_intervals += `<td style="${cellStyle}">${label}: ${vdtDisplay}</td>`;
                     }
                     row4_intervals += `<td style="${emptyCellStyle}">&nbsp;</td>`;
                     html += row4_intervals + `</tr>`;
                 }
 
-
                 html += '</table>';
                 
-                const targetButton = event.target;
+                // (The rest of the copy function for clipboard operations)
+                 const targetButton = event.target;
                 const originalText = targetButton.textContent;
 
                 function updateButtonOnSuccess() {
@@ -1162,10 +1242,9 @@
                     }, 2000);
                 }
                 
-                // Fallback method for copying to clipboard
                 const tempDiv = document.createElement('div');
                 tempDiv.style.position = 'absolute';
-                tempDiv.style.left = '-9999px'; // Move it off-screen
+                tempDiv.style.left = '-9999px';
                 tempDiv.innerHTML = html;
                 document.body.appendChild(tempDiv);
                 
@@ -1173,27 +1252,21 @@
                 try {
                     const range = document.createRange();
                     range.selectNode(tempDiv);
-                    window.getSelection().removeAllRanges(); // Clear previous selections
-                    window.getSelection().addRange(range); // Select the content
-                    
+                    window.getSelection().removeAllRanges();
+                    window.getSelection().addRange(range);
                     success = document.execCommand('copy');
-                    
-                    window.getSelection().removeAllRanges(); // Deselect
+                    window.getSelection().removeAllRanges();
                 } catch (err) {
                     console.error('Fallback copy method failed: ', err);
                 }
-                
                 document.body.removeChild(tempDiv);
 
-                if (success) {
-                    updateButtonOnSuccess();
-                } else {
-                    console.error('Failed to copy: execCommand returned false or threw an error.');
-                    alert('Failed to copy report.');
-                }
+                if (success) updateButtonOnSuccess();
+                else alert('Failed to copy report.');
             }
             
             // --- Patient Manager Functions ---
+            // ... (All patient manager functions are here and correct)
             function openPatientManager() {
                 const searchTerm = patientSearchInput.value.toLowerCase();
                 const showStarredOnly = showStarredOnlyCheckbox.checked;
