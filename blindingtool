@@ -1,0 +1,210 @@
+/**
+ * @OnlyCurrentDoc
+ * This script adds a custom menu to the Google Slides UI for blinding and exporting presentations.
+ */
+
+/**
+ * Creates the custom menu in the UI when the presentation is opened.
+ */
+function onOpen() {
+  SlidesApp.getUi()
+    .createMenu('Blinding Tools') // The name of the new menu.
+    .addItem('Run Blinding & Copy to Clipboard', 'runFullBlindingAndExportWorkflow') // Updated menu item
+    .addSeparator() // A line to separate the menu items.
+    .addItem('Delete All "Rad:" Text Boxes', 'deleteRadTextBoxesAdvanced') // Option 2: The original standalone function.
+    .addToUi();
+}
+
+/**
+ * Main workflow function that orchestrates the entire blinding and clipboard export process.
+ */
+function runFullBlindingAndExportWorkflow() {
+  // Step 1: Delete all skipped slides.
+  const deletedSlidesCount = deleteSkippedSlides();
+  SlidesApp.getUi().alert(`Step 1 Complete: Deleted ${deletedSlidesCount} skipped slides.`);
+
+  // Step 2: Find all cases, renumber them based on their unique ID while preserving rich text formatting.
+  const caseTitles = renumberCases();
+  if (caseTitles.length === 0) {
+    SlidesApp.getUi().alert('Workflow stopped: No text boxes starting with "Case" were found.');
+    return;
+  }
+  SlidesApp.getUi().alert(`Step 2 Complete: Renumbered ${caseTitles.length} unique cases across all slides while preserving formatting.`);
+
+  // Step 3: Generate the report text with unique Rad content for each case and show a dialog to copy it.
+  exportCasesToClipboard(caseTitles);
+}
+
+/**
+ * Finds and deletes all skipped slides in the presentation.
+ * @returns {number} The number of slides that were deleted.
+ */
+function deleteSkippedSlides() {
+  const slides = SlidesApp.getActivePresentation().getSlides();
+  let deletedCount = 0;
+  for (let i = slides.length - 1; i >= 0; i--) {
+    const slide = slides[i];
+    if (slide.isSkipped()) {
+      slide.remove();
+      deletedCount++;
+    }
+  }
+  return deletedCount;
+}
+
+/**
+ * Finds all "Case" text boxes, identifies them by the content after the "-", 
+ * renumbers them sequentially per unique case, and returns an array of the unique new titles.
+ * This version preserves rich text formatting.
+ * @returns {Array<string>} A list of the unique, renumbered case titles.
+ */
+function renumberCases() {
+  const presentation = SlidesApp.getActivePresentation();
+  const slides = presentation.getSlides();
+  
+  const uniqueCaseTitles = [];
+  const caseIdentifierMap = new Map(); // Stores the mapping of unique IDs to their new case number.
+  let nextCaseNumber = 1;
+
+  slides.forEach(slide => {
+    slide.getShapes().forEach(shape => {
+      if (shape.getText) {
+        const textRange = shape.getText();
+        const text = textRange.asString().trim();
+
+        if (text.toLowerCase().startsWith("case ")) {
+          const dashIndex = text.indexOf("-");
+          if (dashIndex !== -1) {
+            const caseIdentifier = text.substring(dashIndex).trim();
+            let assignedNumber;
+
+            if (caseIdentifierMap.has(caseIdentifier)) {
+              assignedNumber = caseIdentifierMap.get(caseIdentifier);
+            } else {
+              assignedNumber = nextCaseNumber;
+              caseIdentifierMap.set(caseIdentifier, assignedNumber);
+              nextCaseNumber++;
+            }
+            
+            const newPrefix = `Case ${assignedNumber} `;
+            const prefixRange = textRange.getRange(0, dashIndex);
+            prefixRange.clear(); 
+            textRange.insertText(0, newPrefix);
+
+            const newTitle = textRange.asString().trim();
+            if (!uniqueCaseTitles.includes(newTitle)) {
+              uniqueCaseTitles.push(newTitle);
+            }
+          }
+        }
+      }
+    });
+  });
+  
+  uniqueCaseTitles.sort((a, b) => {
+    const numA = parseInt(a.split(' ')[1]);
+    const numB = parseInt(b.split(' ')[1]);
+    return numA - numB;
+  });
+
+  return uniqueCaseTitles;
+}
+
+
+/**
+ * NEW AND IMPROVED clipboard function.
+ * For each case, it finds the corresponding "Rad:" content on the same slide.
+ * @param {Array<string>} caseTitles - The list of unique, renumbered case titles.
+ */
+function exportCasesToClipboard(caseTitles) {
+  const presentation = SlidesApp.getActivePresentation();
+  const slides = presentation.getSlides();
+  let reportText = "";
+
+  // For each unique case title...
+  caseTitles.forEach(title => {
+    let radContentForThisCase = "Rad content not found for this case.";
+
+    // Find the first slide that contains this specific case title.
+    findCaseSlide:
+    for (const slide of slides) {
+      for (const shape of slide.getShapes()) {
+        if (shape.getText && shape.getText().asString().trim() === title) {
+          // Found the slide with the correct case title.
+          // NOW, search for the Rad content ONLY on this slide.
+          for (const radShape of slide.getShapes()) {
+            if (radShape.getText) {
+              const textContent = radShape.getText().asString().trim().toLowerCase();
+              if (textContent.startsWith("rad:") || textContent.startsWith("rad：")) {
+                const fullText = radShape.getText().asString().trim();
+                const colonIndex = fullText.indexOf(":") !== -1 ? fullText.indexOf(":") : fullText.indexOf("：");
+                radContentForThisCase = fullText.substring(colonIndex + 1).trim();
+                break; // Found the Rad content, no need to look at other shapes on this slide.
+              }
+            }
+          }
+          break findCaseSlide; // We've processed this case title, move to the next one.
+        }
+      }
+    }
+
+    // Build the report string for this specific case.
+    reportText += `${title}\n`;
+    reportText += `Rad: ${radContentForThisCase}\n\n`;
+  });
+
+  // Create an HTML dialog to show the text and provide a copy button.
+  const htmlContent = `
+    <p>Step 3 Complete: Your report is ready. Click the button to copy.</p>
+    <textarea id="reportText" style="width: 98%; height: 200px; margin-bottom: 10px;">${reportText}</textarea>
+    <button onclick="copyToClipboard()" style="padding: 8px 12px; font-size: 14px;">Copy to Clipboard</button>
+    <span id="copyStatus" style="margin-left: 10px; color: green;"></span>
+    <script>
+      function copyToClipboard() {
+        var textArea = document.getElementById("reportText");
+        textArea.select();
+        document.execCommand("copy");
+        document.getElementById("copyStatus").innerText = "Copied!";
+      }
+    </script>
+  `;
+
+  const htmlOutput = HtmlService.createHtmlOutput(htmlContent)
+    .setWidth(450).setHeight(350);
+  SlidesApp.getUi().showModalDialog(htmlOutput, 'Copy Case Report');
+}
+
+
+/**
+ * Standalone function to delete all text boxes starting with "Rad:".
+ */
+function deleteRadTextBoxesAdvanced() {
+  const searchText1 = "rad:";
+  const searchText2 = "rad：";
+  
+  const presentation = SlidesApp.getActivePresentation();
+  const slides = presentation.getSlides();
+  let deletedCount = 0;
+
+  slides.forEach(function(slide) {
+    const shapes = slide.getShapes();
+    shapes.forEach(function(shape) {
+      try {
+        if (shape.getText) {
+          const textContent = shape.getText().asString().trim().toLowerCase();
+          if (textContent.startsWith(searchText1) || textContent.startsWith(searchText2)) {
+            shape.remove();
+            deletedCount++;
+          }
+        }
+      } catch (e) { /* Ignore errors */ }
+    });
+  });
+
+  SlidesApp.getUi().alert(
+    'Operation Complete', 
+    'Successfully deleted ' + deletedCount + ' text boxes.', 
+    SlidesApp.getUi().ButtonSet.OK
+  );
+}
+
