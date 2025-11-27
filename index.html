@@ -276,7 +276,7 @@
         /* Column widths */
         .row-controls { width: 35px; }
         .baseline-col { width: 35px; }
-        .scan-number-col { width: 110px; font-weight: 600; color: var(--text-light); }
+        .scan-number-col { width: 130px; font-weight: 600; color: var(--text-light); }
         
         .baseline-radio {
             cursor: pointer;
@@ -526,7 +526,7 @@
 
     <div class="container">
         <div class="header-container">
-            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.9.3</span></h1>
+            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.9.5</span></h1>
             <div class="header-actions">
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
                 <button class="control-btn export-btn" id="export-btn">Export CSV</button>
@@ -660,12 +660,20 @@
             </div>
             <ul class="changelog-list">
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.9.3 - Logic & Interaction Update</div>
+                    <div class="changelog-version">v2.9.5 - Naming & Logic Refine</div>
                     <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Smarter Annual Labeling:</strong> Scans >9.5 months after Baseline are now recognized as "Annual" (e.g., early checkups), rather than strictly +9m.</li>
-                            <li><strong>Smooth Date Entry:</strong> Hitting Enter on Date input now calculates, sorts, and intelligently jumps to the next date field without losing focus.</li>
+                            <li><strong>Collision Detection:</strong> Scan labels like "1st Annual" now check for duplicates. If a label is already taken by an earlier scan, subsequent ones automatically get "+3m" suffixes (e.g., "1st Annual" -> "1st Annual+3m").</li>
+                        </ul>
+                    </div>
+                </li>
+                 <li class="changelog-item">
+                    <div class="changelog-version">v2.9.4 - Workflow Polish</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Smart Annual Logic:</strong> Intervals >9.5 months are now classified as "Annual".</li>
+                            <li><strong>Seamless Entry:</strong> Enter key now jumps to next row instead of resorting.</li>
                         </ul>
                     </div>
                 </li>
@@ -673,16 +681,8 @@
                     <div class="changelog-version">v2.9.2 - Visualization & Navigation</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Chart:</strong> X-Axis labels are now horizontal.</li>
-                            <li><strong>Table:</strong> Enter key navigation support.</li>
-                        </ul>
-                    </div>
-                </li>
-                 <li class="changelog-item">
-                    <div class="changelog-version">v2.9 - Chart X-Axis Optimization</div>
-                    <div class="changelog-desc">
-                        <ul>
-                            <li><strong>Streamlined X-Axis:</strong> Scan Names are displayed directly on the X-Axis.</li>
+                            <li><strong>Chart:</strong> X-Axis labels are now horizontal for better readability.</li>
+                            <li><strong>Table:</strong> Added Enter key support to jump to the corresponding cell in the next row.</li>
                         </ul>
                     </div>
                 </li>
@@ -768,6 +768,7 @@
             // --- Core Logic ---
             function renderTable() {
                 const sortOrder = sortOrderSelect.value;
+                // Clone for visual sorting only
                 const sortedData = [...tableData].sort((a, b) => {
                     const dateA = parseDateString(a.date) || 0;
                     const dateB = parseDateString(b.date) || 0;
@@ -808,8 +809,6 @@
             function getScanLabel(months) {
                 if (months <= 0.5) return "Baseline";
                 
-                // Adjusted Logic: Annual starts earlier to account for early checkups (e.g. 10m)
-                // Previous logic was strict +9m up to 10.5m. Now we cut off +9m earlier.
                 if (months < 9.5) {
                     if (months >= 1.5 && months < 4.5) return "Baseline+3m";
                     if (months >= 4.5 && months < 7.5) return "Baseline+6m";
@@ -818,26 +817,14 @@
 
                 const years = Math.round(months / 12);
                 const remainder = Math.abs(months - (years * 12));
-                
                 let baseLabel = "";
                 if (years === 1) baseLabel = "1st Annual";
                 else if (years === 2) baseLabel = "2nd Annual";
                 else baseLabel = `${years}th Annual`;
 
-                // Widen tolerance for plain Annual (was 1.5, now implicitly catches everything > 9.5 if remainder isn't large positive)
-                // But we need to handle "Annual + 3m".
-                // If months = 15 (1 year 3 months). years=1. remainder=3. 
+                // Widen tolerance for plain Annual
+                if (remainder <= 2.5) return baseLabel;
                 
-                // Let's use raw division again
-                const rawYears = Math.floor((months + 2.5) / 12); // Shifted rounding
-                // Actually, keep standard logic but shift the "start" of annual window.
-                // 9.5m - 14.5m -> 1st Annual
-                // 14.5m - 17.5m -> 1st Annual+3m
-                
-                if (Math.abs(months - 12) <= 2.5) return "1st Annual"; // 9.5m to 14.5m
-                if (Math.abs(months - 24) <= 2.5) return "2nd Annual";
-                
-                // If not a clean annual, calculate offset from previous annual
                 const floorYear = Math.floor(months / 12);
                 const extra = months - (floorYear * 12);
                 
@@ -849,48 +836,98 @@
                 if (extra >= 4.5 && extra < 7.5) return `${baseLabel}+6m`;
                 if (extra >= 7.5 && extra < 10.5) return `${baseLabel}+9m`;
                 
-                // Fallback for generic
-                return baseLabel;
+                return baseLabel; // Fallback
             }
 
             function updateScanLabels() {
                 const chronoData = [...tableData]
                     .map(d => ({...d, dateObj: parseDateString(d.date)}))
                     .filter(d => d.dateObj)
-                    .sort((a, b) => b.dateObj - a.dateObj);
-                const baselineRow = chronoData.find(d => d.isBaseline);
-                const rows = tableBody.querySelectorAll('tr');
-                rows.forEach(row => {
-                    const rowId = parseInt(row.dataset.id);
-                    const dataRow = tableData.find(d => d.id === rowId);
-                    const input = row.querySelector('.scan-label-input');
-                    let generatedLabel = '-';
-                    if (dataRow && dataRow.date) { 
-                        const currentScan = chronoData.find(d => d.id === rowId);
-                         if (currentScan) {
-                             if (baselineRow) {
-                                if (currentScan.id === baselineRow.id) {
-                                     generatedLabel = "Baseline";
-                                 } else {
-                                     const diffTime = currentScan.dateObj - baselineRow.dateObj;
-                                     if (diffTime < 0) {
-                                          const months = Math.round(Math.abs(diffTime) / (1000 * 60 * 60 * 24 * 30.44));
-                                          generatedLabel = `Pre-BL(${months}m)`;
-                                     } else {
-                                          const months = Math.round(diffTime / (1000 * 60 * 60 * 24 * 30.44));
-                                          generatedLabel = getScanLabel(months);
-                                     }
-                                 }
+                    .sort((a, b) => b.dateObj - a.dateObj); // earliest date at index 0
+                // Wait, previous sort was b.dateObj - a.dateObj (Newest First) if we iterate chronologically we should sort a - b (Oldest First)
+                // Let's sort chronologically (Oldest -> Newest) to detect duplicates in order
+                const ascendingData = [...chronoData].sort((a, b) => a.dateObj - b.dateObj);
+
+                const baselineRow = ascendingData.find(d => d.isBaseline);
+                
+                // Track used labels to prevent duplicates
+                const usedLabels = new Set();
+
+                // We iterate the logical data, then find the DOM row to update
+                ascendingData.forEach(currentScan => {
+                     const rowId = currentScan.id;
+                     // Find the actual data object in master tableData to update customLabel model
+                     const dataRow = tableData.find(d => d.id === rowId);
+                     
+                     // Find DOM element if it exists (might not be rendered if filter? no filter on main table)
+                     // We need to find the input in DOM to update visual value if user hasn't edited it
+                     // The DOM rows might be in different order (display order)
+                     // So we find row by dataset ID
+                     const row = Array.from(tableBody.querySelectorAll('tr')).find(r => parseInt(r.dataset.id) === rowId);
+                     const input = row ? row.querySelector('.scan-label-input') : null;
+                     
+                     let generatedLabel = '-';
+
+                     if (baselineRow) {
+                        if (currentScan.id === baselineRow.id) {
+                             generatedLabel = "Baseline";
+                         } else {
+                             const diffTime = currentScan.dateObj - baselineRow.dateObj;
+                             if (diffTime < 0) {
+                                  const months = Math.round(Math.abs(diffTime) / (1000 * 60 * 60 * 24 * 30.44));
+                                  generatedLabel = `Pre-BL(${months}m)`;
                              } else {
-                                 const chronoIndex = chronoData.findIndex(d => d.id === rowId);
-                                 generatedLabel = chronoIndex === 0 ? 'Scan 0' : `Scan -${chronoIndex}`;
+                                  const months = Math.round(diffTime / (1000 * 60 * 60 * 24 * 30.44));
+                                  generatedLabel = getScanLabel(months);
+                                  
+                                  // DUPLICATE CHECK
+                                  if (usedLabels.has(generatedLabel)) {
+                                      // If "1st Annual" is taken, make it "1st Annual+3m"
+                                      // If "1st Annual+3m" is taken, make it "+6m" etc
+                                      // Simple fix: append +3m.
+                                      // But wait, if getScanLabel returned "1st Annual", and it's taken,
+                                      // it means this scan is later than the previous "1st Annual" but close enough to be called that.
+                                      // We should force it to the next interval.
+                                      
+                                      // Check if it ends in "Annual"
+                                      if (generatedLabel.endsWith("Annual")) {
+                                          generatedLabel = generatedLabel + "+3m";
+                                      } else if (generatedLabel.endsWith("+3m")) {
+                                          generatedLabel = generatedLabel.replace("+3m", "+6m");
+                                      } else if (generatedLabel.endsWith("+6m")) {
+                                          generatedLabel = generatedLabel.replace("+6m", "+9m");
+                                      }
+                                      
+                                      // Re-check just in case? (Recursive? For now single step is enough for typical clinical flow)
+                                      if (usedLabels.has(generatedLabel)) {
+                                          if (generatedLabel.endsWith("+3m")) generatedLabel = generatedLabel.replace("+3m", "+6m");
+                                          else if (generatedLabel.endsWith("+6m")) generatedLabel = generatedLabel.replace("+6m", "+9m");
+                                      }
+                                  }
                              }
                          }
-                    }
-                    if (document.activeElement !== input) {
+                     } else {
+                         // Fallback Standard Numbering (Scan 0, -1...)
+                         // Chrono index relative to whole set
+                         // But 'scan-number' logic usually is relative to newest = 0
+                         // Let's keep the old fallback logic for display if no baseline
+                         // To be consistent with previous code:
+                         // Scan 0 is newest.
+                         // We need to find index in the *descending* list for Scan #
+                         const descIndex = chronoData.findIndex(d => d.id === rowId); // chronoData is sorted Newest First in updateScanLabels above?
+                         // Wait, chronoData declaration above was map... sort(b-a). So it IS Newest First.
+                         // But for label collision detection we used ascendingData.
+                         // Let's stick to simple Scan # if no baseline
+                         generatedLabel = descIndex === 0 ? 'Scan 0' : `Scan -${descIndex}`;
+                     }
+
+                     usedLabels.add(generatedLabel);
+
+                     // Update Model & View
+                     if (input && document.activeElement !== input) {
                          dataRow.customLabel = generatedLabel; 
                          input.value = generatedLabel;
-                    }
+                     }
                 });
             }
 
@@ -936,28 +973,28 @@
                             e.preventDefault();
                             // 1. Update Model
                             dataRow.date = e.target.value;
-                            // 2. Trigger Logic (Recalc + Sort)
-                            renderTable(); 
-                            // 3. Focus Next Row's Date
-                            // Since we re-sorted, we need to find where "next" logical row is.
-                            // Usually, user enters chrono (Scan -3, -2, -1...). So 'next' in input is visually above?
-                            // Or if Newest First, and entering Scan -2 then Scan -1...
-                            // Simplest: Find index of current ID in new DOM list, focus index+1 (visually down)
-                            // OR if user is adding new row...
-                            // Let's assume visual flow down.
-                            const newRows = Array.from(tableBody.querySelectorAll('tr'));
-                            const currentIdx = newRows.findIndex(r => parseInt(r.dataset.id) === rowId);
-                            if (currentIdx !== -1 && currentIdx < newRows.length - 1) {
-                                const nextInput = newRows[currentIdx + 1].querySelector('.date-input');
+                            // 2. Update Labels and Calcs (In background, NO renderTable)
+                            updateScanLabels();
+                            calculateAll();
+                            
+                            // 3. Focus Next Row's Date (Visual next)
+                            const currentTr = dateInput.closest('tr');
+                            const nextTr = currentTr.nextElementSibling;
+                            if (nextTr) {
+                                const nextInput = nextTr.querySelector('.date-input');
                                 if (nextInput) nextInput.focus();
+                            } else {
+                                dateInput.blur(); // Blur triggers the change event which sorts
                             }
                         }
                     });
                     
-                    // Only re-render on Blur (change) if not handled by Enter
+                    // On Blur (Change), re-sort and re-render table structure
                     dateInput.addEventListener('change', (e) => {
                         format_date(e);
-                        updateData(e, 'date', true); 
+                        dataRow.date = e.target.value;
+                        // This is where physical re-sorting happens
+                        renderTable(); 
                     });
 
                     // FIX: Pass false to prevent re-rendering and focus loss on input
@@ -1187,7 +1224,6 @@
                 const date3m = new Date(last.dateObj); date3m.setDate(date3m.getDate() + 90);
                 const date1y = new Date(last.dateObj); date1y.setDate(date1y.getDate() + 365);
                 
-                // Map dates to labels for X-Axis
                 const dateLabelMap = {};
                 chartData.forEach(d => {
                     const dStr = d.dateObj.toISOString().split('T')[0];
@@ -1268,7 +1304,6 @@
                     addPredLine('Non-solid', '#2ecc71', last.nonsolid, totG);
                 }
 
-                // Force plugin registration locally for chart instance just in case
                 volumeChart = new Chart(ctx, {
                     type: 'line',
                     plugins: [ChartDataLabels],
@@ -1290,11 +1325,10 @@
                                     }
                                 },
                                 ticks: {
-                                    source: 'data', // FIX: Only show ticks for data points (scans + predictions)
+                                    source: 'data',
                                     autoSkip: false,
-                                    maxRotation: 0, // FIX: Horizontal labels
+                                    maxRotation: 0, 
                                     minRotation: 0,
-                                    // Custom callback to show Date + Label on X-Axis
                                     callback: function(value, index, values) {
                                         const date = new Date(value);
                                         const dStr = date.toISOString().split('T')[0]; 
@@ -1329,7 +1363,6 @@
                 if (dataForCalc.length < 1) return;
                 
                 const numCols = dataForCalc.length > 1 ? dataForCalc.length * 2 - 1 : 1;
-                // NEW: Background transparent, Font Color White
                 const cellStyle = "border: none; padding: 0.01in; text-align: center; font-family: Arial; font-size: 11pt; color: white; background-color: transparent;";
                 const tableStyle = `font-family: Arial; font-size: 11pt; border-collapse: collapse; border: none; background-color: transparent; table-layout: fixed; width: ${numCols * 100}px;`;
                 
@@ -1348,7 +1381,6 @@
                 
                 let disp = res.value ? res.value + 'd' : 'N/A';
                 if(res.value === 'Stable') disp = 'Stable';
-                // NEW: Blue color coding for fast shrinking
                 else if(parseFloat(res.value) > 0 && parseFloat(res.value) <= 400) disp = `<b style="color:red">${disp}</b>`;
                 else if(parseFloat(res.value) > 400 && parseFloat(res.value) <= 600) disp = `<b style="color:orange">${disp}</b>`;
                 else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:#3498db">${disp}</b>`;
@@ -1395,7 +1427,6 @@
                          let dStr = r.value ? r.value + 'd' : 'N/A';
                          if(r.html && r.html.includes('<15mm')) dStr = 'N/A'; 
                          else if(r.value === 'Stable') dStr = 'Stable';
-                         // NEW: Blue color coding here too
                          else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:red">${dStr}</b>`;
                          else if(parseFloat(r.value) > 400 && parseFloat(r.value) <= 600) dStr = `<b style="color:orange">${dStr}</b>`;
                          else if(parseFloat(r.value) < 0 && parseFloat(r.value) >= -400) dStr = `<b style="color:#3498db">${dStr}</b>`;
