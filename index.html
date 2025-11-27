@@ -526,7 +526,7 @@
 
     <div class="container">
         <div class="header-container">
-            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.9.2</span></h1>
+            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.9.3</span></h1>
             <div class="header-actions">
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
                 <button class="control-btn export-btn" id="export-btn">Export CSV</button>
@@ -660,20 +660,21 @@
             </div>
             <ul class="changelog-list">
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.9.2 - Visualization & Navigation</div>
+                    <div class="changelog-version">v2.9.3 - Logic & Interaction Update</div>
                     <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Chart:</strong> X-Axis labels are now horizontal for better readability.</li>
-                            <li><strong>Table:</strong> Added Enter key support to jump to the corresponding cell in the next row.</li>
+                            <li><strong>Smarter Annual Labeling:</strong> Scans >9.5 months after Baseline are now recognized as "Annual" (e.g., early checkups), rather than strictly +9m.</li>
+                            <li><strong>Smooth Date Entry:</strong> Hitting Enter on Date input now calculates, sorts, and intelligently jumps to the next date field without losing focus.</li>
                         </ul>
                     </div>
                 </li>
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.9.1 - Input Interaction Fix</div>
+                    <div class="changelog-version">v2.9.2 - Visualization & Navigation</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Smooth Typing:</strong> Fixed input interruption bug.</li>
+                            <li><strong>Chart:</strong> X-Axis labels are now horizontal.</li>
+                            <li><strong>Table:</strong> Enter key navigation support.</li>
                         </ul>
                     </div>
                 </li>
@@ -686,72 +687,10 @@
                     </div>
                 </li>
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.8 - Full Width & Color Fix</div>
-                    <div class="changelog-desc">
-                        <ul>
-                             <li><strong>Adaptive Layout:</strong> Page now fits 100% width correctly.</li>
-                             <li><strong>Visual Fix:</strong> Restored Color Coding for Total VDT results.</li>
-                        </ul>
-                    </div>
-                </li>
-                 <li class="changelog-item">
-                    <div class="changelog-version">v2.7 - Bug Fixes & Optimization</div>
-                    <div class="changelog-desc">
-                        <ul>
-                             <li><strong>Critical Fixes:</strong> Resolved chart crashing and copy report errors.</li>
-                             <li><strong>Chart Labels:</strong> Added robust data labels showing Scan Name, Volume, and VDT.</li>
-                        </ul>
-                    </div>
-                </li>
-                 <li class="changelog-item">
-                    <div class="changelog-version">v2.6 - Reporting & Chart Upgrade</div>
-                    <div class="changelog-desc">
-                        <ul>
-                            <li><strong>Dark Mode Ready Report:</strong> Copied reports now have transparent backgrounds and white text.</li>
-                            <li><strong>New Risk Color:</strong> Added blue coding for "Fast Shrinking" VDTs.</li>
-                        </ul>
-                    </div>
-                </li>
-                 <li class="changelog-item">
-                    <div class="changelog-version">v2.5 - Charting & X-Axis Refinement</div>
-                    <div class="changelog-desc">
-                        <ul>
-                            <li><strong>Clean X-Axis:</strong> Chart now only displays ticks for actual Scan Dates plus prediction dates.</li>
-                        </ul>
-                    </div>
-                </li>
-                <li class="changelog-item">
                     <div class="changelog-version">v2.4 - Clinical Protocol Naming</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Automatic Scan Labeling:</strong> Auto-names scans based on intervals from Baseline (e.g., "1st Annual", "Baseline+3m").</li>
-                        </ul>
-                    </div>
-                </li>
-                <li class="changelog-item">
-                    <div class="changelog-version">v2.3 - Smart Baseline</div>
-                    <div class="changelog-desc">
-                        <ul>
-                            <li><strong>Smart Scan Naming:</strong> Select a Baseline (BL) scan to automatically label subsequent scans.</li>
-                        </ul>
-                    </div>
-                </li>
-                <li class="changelog-item">
-                    <div class="changelog-version">v2.0 - Non-solid & Charting</div>
-                    <div class="changelog-desc">
-                        <ul>
-                            <li>Added full support for Non-solid (GGO) components.</li>
-                            <li>Integrated Non-solid data into Charts.</li>
-                        </ul>
-                    </div>
-                </li>
-                <li class="changelog-item">
-                    <div class="changelog-version">v1.0 - Initial Release</div>
-                    <div class="changelog-desc">
-                        <ul>
-                            <li>Basic VDT calculation for Solid and Core volumes.</li>
-                            <li>Patient ID saving/loading functionality.</li>
-                            <li>Dynamic table with Add/Remove rows.</li>
+                            <li><strong>Automatic Scan Labeling:</strong> Auto-names scans based on intervals from Baseline.</li>
                         </ul>
                     </div>
                 </li>
@@ -829,7 +768,6 @@
             // --- Core Logic ---
             function renderTable() {
                 const sortOrder = sortOrderSelect.value;
-                // Clone for visual sorting only
                 const sortedData = [...tableData].sort((a, b) => {
                     const dateA = parseDateString(a.date) || 0;
                     const dateB = parseDateString(b.date) || 0;
@@ -869,26 +807,49 @@
 
             function getScanLabel(months) {
                 if (months <= 0.5) return "Baseline";
-                if (months < 10.5) {
+                
+                // Adjusted Logic: Annual starts earlier to account for early checkups (e.g. 10m)
+                // Previous logic was strict +9m up to 10.5m. Now we cut off +9m earlier.
+                if (months < 9.5) {
                     if (months >= 1.5 && months < 4.5) return "Baseline+3m";
                     if (months >= 4.5 && months < 7.5) return "Baseline+6m";
-                    if (months >= 7.5 && months < 10.5) return "Baseline+9m";
+                    if (months >= 7.5 && months < 9.5) return "Baseline+9m";
                 }
+
                 const years = Math.round(months / 12);
                 const remainder = Math.abs(months - (years * 12));
+                
                 let baseLabel = "";
                 if (years === 1) baseLabel = "1st Annual";
                 else if (years === 2) baseLabel = "2nd Annual";
                 else baseLabel = `${years}th Annual`;
-                if (remainder <= 1.5) return baseLabel;
-                const rawYears = Math.floor(months / 12);
-                const extra = months - (rawYears * 12);
-                if (rawYears === 1) baseLabel = "1st Annual";
-                else if (rawYears === 2) baseLabel = "2nd Annual";
-                else baseLabel = `${rawYears}th Annual`;
+
+                // Widen tolerance for plain Annual (was 1.5, now implicitly catches everything > 9.5 if remainder isn't large positive)
+                // But we need to handle "Annual + 3m".
+                // If months = 15 (1 year 3 months). years=1. remainder=3. 
+                
+                // Let's use raw division again
+                const rawYears = Math.floor((months + 2.5) / 12); // Shifted rounding
+                // Actually, keep standard logic but shift the "start" of annual window.
+                // 9.5m - 14.5m -> 1st Annual
+                // 14.5m - 17.5m -> 1st Annual+3m
+                
+                if (Math.abs(months - 12) <= 2.5) return "1st Annual"; // 9.5m to 14.5m
+                if (Math.abs(months - 24) <= 2.5) return "2nd Annual";
+                
+                // If not a clean annual, calculate offset from previous annual
+                const floorYear = Math.floor(months / 12);
+                const extra = months - (floorYear * 12);
+                
+                if (floorYear === 1) baseLabel = "1st Annual";
+                else if (floorYear === 2) baseLabel = "2nd Annual";
+                else baseLabel = `${floorYear}th Annual`;
+                
                 if (extra >= 1.5 && extra < 4.5) return `${baseLabel}+3m`;
                 if (extra >= 4.5 && extra < 7.5) return `${baseLabel}+6m`;
                 if (extra >= 7.5 && extra < 10.5) return `${baseLabel}+9m`;
+                
+                // Fallback for generic
                 return baseLabel;
             }
 
@@ -969,7 +930,31 @@
                     const dataRow = tableData.find(d => d.id === rowId);
                     
                     const dateInput = tr.querySelector('.date-input');
-                    dateInput.addEventListener('input', (e) => updateData(e, 'date', false));
+                    // Keydown for Enter Logic on Date
+                    dateInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            // 1. Update Model
+                            dataRow.date = e.target.value;
+                            // 2. Trigger Logic (Recalc + Sort)
+                            renderTable(); 
+                            // 3. Focus Next Row's Date
+                            // Since we re-sorted, we need to find where "next" logical row is.
+                            // Usually, user enters chrono (Scan -3, -2, -1...). So 'next' in input is visually above?
+                            // Or if Newest First, and entering Scan -2 then Scan -1...
+                            // Simplest: Find index of current ID in new DOM list, focus index+1 (visually down)
+                            // OR if user is adding new row...
+                            // Let's assume visual flow down.
+                            const newRows = Array.from(tableBody.querySelectorAll('tr'));
+                            const currentIdx = newRows.findIndex(r => parseInt(r.dataset.id) === rowId);
+                            if (currentIdx !== -1 && currentIdx < newRows.length - 1) {
+                                const nextInput = newRows[currentIdx + 1].querySelector('.date-input');
+                                if (nextInput) nextInput.focus();
+                            }
+                        }
+                    });
+                    
+                    // Only re-render on Blur (change) if not handled by Enter
                     dateInput.addEventListener('change', (e) => {
                         format_date(e);
                         updateData(e, 'date', true); 
@@ -978,21 +963,18 @@
                     // FIX: Pass false to prevent re-rendering and focus loss on input
                     const inputs = tr.querySelectorAll('input[type="number"], input[type="text"]');
                     inputs.forEach(input => {
-                         // Store logic for volume inputs separately if needed, but here mainly for enter key
-                         // Attach updateData listeners
                          if (input.classList.contains('solid-input')) input.addEventListener('input', (e) => updateData(e, 'solid', false));
                          if (input.classList.contains('core-input')) input.addEventListener('input', (e) => updateData(e, 'core', false));
                          if (input.classList.contains('nonsolid-input')) input.addEventListener('input', (e) => updateData(e, 'nonsolid', false));
                          
-                         // Enter Key Navigation
+                         // Enter Key Navigation for Volumes (unchanged)
                          input.addEventListener('keydown', (e) => {
                             if (e.key === 'Enter') {
                                 e.preventDefault();
                                 const currentTr = input.closest('tr');
                                 const nextTr = currentTr.nextElementSibling;
                                 if (nextTr) {
-                                    // Find same class in next row
-                                    const className = input.classList[0]; // e.g. solid-input
+                                    const className = input.classList[0]; 
                                     if (className) {
                                         const nextInput = nextTr.querySelector(`.${className}`);
                                         if (nextInput) nextInput.focus();
@@ -1366,6 +1348,7 @@
                 
                 let disp = res.value ? res.value + 'd' : 'N/A';
                 if(res.value === 'Stable') disp = 'Stable';
+                // NEW: Blue color coding for fast shrinking
                 else if(parseFloat(res.value) > 0 && parseFloat(res.value) <= 400) disp = `<b style="color:red">${disp}</b>`;
                 else if(parseFloat(res.value) > 400 && parseFloat(res.value) <= 600) disp = `<b style="color:orange">${disp}</b>`;
                 else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:#3498db">${disp}</b>`;
@@ -1412,6 +1395,7 @@
                          let dStr = r.value ? r.value + 'd' : 'N/A';
                          if(r.html && r.html.includes('<15mm')) dStr = 'N/A'; 
                          else if(r.value === 'Stable') dStr = 'Stable';
+                         // NEW: Blue color coding here too
                          else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:red">${dStr}</b>`;
                          else if(parseFloat(r.value) > 400 && parseFloat(r.value) <= 600) dStr = `<b style="color:orange">${dStr}</b>`;
                          else if(parseFloat(r.value) < 0 && parseFloat(r.value) >= -400) dStr = `<b style="color:#3498db">${dStr}</b>`;
