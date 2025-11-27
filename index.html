@@ -8,7 +8,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <!-- Removed unused annotation plugin to prevent errors -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     
     <style>
         :root {
@@ -34,16 +36,16 @@
             background-color: var(--bg-color);
             color: var(--text-main);
             margin: 0;
-            padding: 30px;
+            padding: 20px;
             line-height: 1.5;
         }
 
         .container {
             width: 100%;
-            max-width: 1600px;
+            max-width: 98%;
             margin: 0 auto;
             background-color: var(--card-bg);
-            padding: 40px;
+            padding: 25px;
             border-radius: 12px;
             box-shadow: var(--shadow-md);
             position: relative;
@@ -54,13 +56,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
             border-bottom: 1px solid var(--border-color);
         }
 
         h1 {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 600;
             margin: 0;
             color: var(--text-main);
@@ -83,7 +85,7 @@
 
         .header-actions {
             display: flex;
-            gap: 12px;
+            gap: 10px;
         }
 
         /* --- Patient ID Input --- */
@@ -92,25 +94,25 @@
             align-items: center;
             justify-content: center;
             gap: 15px;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             background: #f8fafc;
-            padding: 20px;
+            padding: 15px;
             border-radius: var(--radius-md);
             border: 1px dashed var(--border-color);
         }
 
         .patient-id-container label {
-            font-size: 1.1em;
+            font-size: 1rem;
             font-weight: 600;
             color: var(--text-main);
         }
 
         .patient-id-container input {
-            padding: 10px 15px;
+            padding: 8px 12px;
             border: 1px solid #d1d5db;
             border-radius: var(--radius-sm);
-            font-size: 1.1em;
-            width: 300px;
+            font-size: 1rem;
+            width: 250px;
             outline: none;
             transition: border-color 0.2s;
         }
@@ -124,14 +126,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             flex-wrap: wrap;
-            gap: 20px;
+            gap: 15px;
         }
 
         .left-controls {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             align-items: center;
             flex-wrap: wrap;
         }
@@ -140,12 +142,12 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 8px 16px;
-            height: 36px;
+            padding: 6px 14px;
+            height: 34px;
             color: white;
             border: none;
             border-radius: var(--radius-sm);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -186,8 +188,9 @@
             color: var(--text-main); 
             border: 1px solid #d1d5db;
             box-shadow: none;
-            font-size: 0.85rem;
-            height: 32px;
+            font-size: 0.8rem;
+            height: 30px;
+            padding: 4px 10px;
         }
         .copy-btn:hover {
             background-color: #f8f9fa;
@@ -198,11 +201,11 @@
         .sort-control, .new-nodule-control {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
+            gap: 6px;
+            font-size: 0.85rem;
             color: var(--text-main);
             background: #fff;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border: 1px solid var(--border-color);
             border-radius: 20px;
         }
@@ -214,6 +217,7 @@
             color: var(--primary-color);
             cursor: pointer;
             outline: none;
+            font-size: 0.85rem;
         }
 
         /* --- Table --- */
@@ -221,25 +225,27 @@
             overflow-x: auto;
             border-radius: var(--radius-md);
             border: 1px solid var(--border-color);
+            margin-bottom: 20px;
         }
 
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
 
         .data-table th {
             background-color: #f1f5f9;
             color: var(--text-main);
             font-weight: 600;
-            padding: 12px;
+            padding: 10px;
             text-align: center;
             border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
         }
 
         .data-table td {
-            padding: 8px;
+            padding: 6px;
             border-bottom: 1px solid var(--border-color);
             text-align: center;
             background-color: #fff;
@@ -250,12 +256,13 @@
 
         .data-table input[type="text"], .data-table input[type="number"] {
             width: 100%;
-            padding: 8px;
-            border: 1px solid transparent; /* Invisible border by default */
+            padding: 6px;
+            border: 1px solid transparent; 
             border-radius: 4px;
             text-align: center;
             background: transparent;
             font-family: inherit;
+            font-size: 0.9rem;
         }
         .data-table input:hover {
             background: #fff;
@@ -267,18 +274,17 @@
             outline: none;
         }
         
-        /* Radio button style */
+        /* Column widths */
+        .row-controls { width: 35px; }
+        .baseline-col { width: 35px; }
+        .scan-number-col { width: 110px; font-weight: 600; color: var(--text-light); }
+        
         .baseline-radio {
             cursor: pointer;
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
             accent-color: var(--primary-color);
         }
-
-        /* Column widths */
-        .row-controls { width: 40px; }
-        .baseline-col { width: 40px; }
-        .scan-number-col { width: 130px; font-weight: 600; color: var(--text-light); }
 
         /* Delete Controls */
         .delete-row-btn {
@@ -286,33 +292,33 @@
             border: none;
             color: #cbd5e1;
             cursor: pointer;
-            font-size: 22px;
+            font-size: 20px;
             font-weight: bold;
             transition: color 0.2s;
             line-height: 1;
         }
         .delete-row-btn:hover { color: var(--accent-red); }
-        .data-table tr:hover .delete-row-btn { color: #ffadad; } /* Subtle red on row hover */
+        .data-table tr:hover .delete-row-btn { color: #ffadad; } 
         .data-table tr:hover .delete-row-btn:hover { color: var(--accent-red); }
 
         /* --- Results Area --- */
         .total-results-container, .prediction-results-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-top: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
         }
 
         .total-result-box, .prediction-result-box {
             background: #fff;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
-            padding: 20px;
+            padding: 15px;
             text-align: center;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
         
         .prediction-results-container .prediction-result-box {
@@ -321,7 +327,7 @@
         }
 
         .label {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--text-light);
@@ -329,19 +335,19 @@
         }
         
         .value {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             font-weight: 700;
             color: var(--text-main);
         }
 
         /* --- Chart --- */
         .chart-container {
-            margin-top: 40px;
-            padding: 20px;
+            margin-top: 30px;
+            padding: 15px;
             background: #fff;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
-            height: 600px;
+            height: 450px; /* Slightly reduced height */
         }
 
         /* --- Modals --- */
@@ -440,7 +446,7 @@
             border: none;
             font-size: 20px;
             cursor: pointer;
-            color: #bdc3c7; /* Default empty star color */
+            color: #bdc3c7;
             padding: 0;
         }
         .star-btn.starred {
@@ -507,7 +513,6 @@
             padding-left: 20px;
         }
         
-        /* Scan label editable input style */
         .scan-label-input {
             font-weight: 600;
             color: #555;
@@ -522,7 +527,7 @@
 
     <div class="container">
         <div class="header-container">
-            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.7</span></h1>
+            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.9.1</span></h1>
             <div class="header-actions">
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
                 <button class="control-btn export-btn" id="export-btn">Export CSV</button>
@@ -656,30 +661,30 @@
             </div>
             <ul class="changelog-list">
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.7 - Bug Fixes & Optimization</div>
+                    <div class="changelog-version">v2.9.1 - Input Interaction Fix</div>
                     <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
-                             <li><strong>Critical Fixes:</strong> Resolved chart crashing and copy report errors.</li>
-                             <li><strong>Chart Labels:</strong> Added robust data labels showing Scan Name, Volume, and VDT directly on the chart.</li>
-                             <li><strong>Copy Report:</strong> Optimized for dark mode presentation (Transparent BG, White Text) and added blue indicators for shrinking.</li>
+                            <li><strong>Smooth Typing:</strong> Fixed input interruption bug. Volume inputs no longer lose focus while typing.</li>
+                            <li><strong>Performance:</strong> Chart updates are now efficient and don't trigger full table redraws during data entry.</li>
                         </ul>
                     </div>
                 </li>
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.6 - Reporting & Chart Upgrade</div>
+                    <div class="changelog-version">v2.9 - Chart X-Axis Optimization</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Dark Mode Ready Report:</strong> Copied reports now have transparent backgrounds and white text.</li>
-                            <li><strong>New Risk Color:</strong> Added blue coding for "Fast Shrinking" VDTs.</li>
+                            <li><strong>Streamlined X-Axis:</strong> The chart now displays Scan Names (e.g., "Baseline", "1st Annual") directly on the X-Axis along with the date.</li>
+                             <li><strong>Clean Data Labels:</strong> Chart bubbles now only show Volume and VDT.</li>
                         </ul>
                     </div>
                 </li>
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.4.2 - Auto-Sorting & Simplified UI</div>
+                    <div class="changelog-version">v2.8 - Full Width & Color Fix</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Auto-Sorting:</strong> Table automatically sorts by date in real-time.</li>
+                             <li><strong>Adaptive Layout:</strong> Page now fits 100% width correctly.</li>
+                             <li><strong>Visual Fix:</strong> Restored Color Coding for Total VDT results.</li>
                         </ul>
                     </div>
                 </li>
@@ -903,9 +908,11 @@
                         updateData(e, 'date', true); 
                     });
 
-                    tr.querySelector('.solid-input').addEventListener('input', (e) => updateData(e, 'solid'));
-                    tr.querySelector('.core-input').addEventListener('input', (e) => updateData(e, 'core'));
-                    tr.querySelector('.nonsolid-input').addEventListener('input', (e) => updateData(e, 'nonsolid'));
+                    // FIX: Pass false to prevent re-rendering and focus loss on input
+                    tr.querySelector('.solid-input').addEventListener('input', (e) => updateData(e, 'solid', false));
+                    tr.querySelector('.core-input').addEventListener('input', (e) => updateData(e, 'core', false));
+                    tr.querySelector('.nonsolid-input').addEventListener('input', (e) => updateData(e, 'nonsolid', false));
+                    
                     tr.querySelector('.delete-row-btn').addEventListener('click', () => deleteRow(rowId));
                     
                     const radio = tr.querySelector('.baseline-radio');
@@ -962,7 +969,6 @@
                 const base = { html: '-', value: null, timeDiff: null, volumeChange: null };
                 if (!timeDiff || timeDiff <= 0 || isNaN(vol1) || isNaN(vol2) || vol1 <= 0 || vol2 <= 0) return base;
 
-                // NEW: Check for New Nodule shrinking threshold (vol1 = current, vol2 = assumed 15)
                 if (isNewNoduleCalc && vol1 < vol2) {
                     return { html: 'N/A (<15mm³)', value: null, timeDiff: null, volumeChange: null };
                 }
@@ -973,7 +979,7 @@
                 const vdt = (Math.log(2) * timeDiff) / (Math.log(vol1) - Math.log(vol2));
                 const disp = vdt.toFixed(0);
                 let cls = 'vdt-stable-or-slow';
-                // NEW: Color coding logic including fast shrinking
+                
                 if (vdt > 0 && vdt <= 400) cls = 'vdt-positive';
                 else if (vdt > 400 && vdt <= 600) cls = 'vdt-indeterminate';
                 else if (vdt < 0 && vdt >= -400) cls = 'vdt-shrinking';
@@ -1014,7 +1020,6 @@
 
                     const row = Array.from(tableBody.querySelectorAll('tr')).find(r => parseInt(r.dataset.id) === curr.id);
                     if (row) {
-                        // Helper to append (max) label
                         const fmt = (r) => {
                             if (!r.value && r.html.includes('N/A')) return r.html;
                             if (!r.value) return '-';
@@ -1046,7 +1051,7 @@
                     const boxHtml = (label, res, type) => `
                         <div class="total-result-box">
                             <div class="label">${label}</div>
-                            <div class="value">${res.value ? (res.value === 'Stable' ? 'Stable' : res.value + 'd') : '-'}</div>
+                            <div class="value">${res.html || '-'}</div>
                             <button class="control-btn copy-btn" onclick="copyReport('${type}', this)">Copy Report</button>
                         </div>`;
 
@@ -1105,10 +1110,22 @@
                 const validData = chartData.filter(d => !isNaN(d.solid) || !isNaN(d.core) || !isNaN(d.nonsolid));
                 if (validData.length < 1) return;
                 
-                // Calculate dates for prediction
                 const last = validData[validData.length-1];
                 const date3m = new Date(last.dateObj); date3m.setDate(date3m.getDate() + 90);
                 const date1y = new Date(last.dateObj); date1y.setDate(date1y.getDate() + 365);
+                
+                // Map dates to labels for X-Axis
+                const dateLabelMap = {};
+                chartData.forEach(d => {
+                    const dStr = d.dateObj.toISOString().split('T')[0];
+                    dateLabelMap[dStr] = d.customLabel || 'Scan';
+                });
+                
+                // Add prediction labels to map
+                if (predictionCheckbox.checked) {
+                    dateLabelMap[date3m.toISOString().split('T')[0]] = '+3m Pred';
+                    dateLabelMap[date1y.toISOString().split('T')[0]] = '+1y Pred';
+                }
 
                 const createDs = (label, color, key, vdtKey) => ({
                     label: label,
@@ -1125,16 +1142,13 @@
                         align: 'top',
                         color: '#333',
                         font: { weight: 'bold', size: 11 },
-                        // NEW: Background box for labels
-                        backgroundColor: 'rgba(255,255,255,0.8)',
+                        backgroundColor: 'rgba(255,255,255,0.85)',
                         borderRadius: 4,
                         padding: 4,
                         offset: 4,
                         formatter: (v, ctx) => {
+                            let str = `${v.y.toFixed(1)} mm³`;
                             const point = ctx.dataset.data[ctx.dataIndex];
-                            let str = point.label;
-                            str += `\n${v.y.toFixed(1)} mm³`;
-                            // NEW: Show VDT directly on node if available
                             if (point.vdt && point.vdt !== 'Stable' && point.vdt !== '-') {
                                 str += `\nVDT: ${point.vdt}d`;
                             }
@@ -1166,13 +1180,12 @@
                              datalabels: {
                                  align: 'right',
                                  color: color,
-                                 backgroundColor: 'rgba(255,255,255,0.8)',
+                                 backgroundColor: 'rgba(255,255,255,0.85)',
                                  borderRadius: 4,
                                  padding: 4,
                                  formatter: (v, ctx) => {
                                      if(ctx.dataIndex === 0) return null;
-                                     const lbl = ctx.dataIndex === 1 ? '+3m' : '+1y';
-                                     return `${lbl}\n${v.y.toFixed(1)} mm³`;
+                                     return `${v.y.toFixed(1)} mm³`;
                                  }
                              }
                          });
@@ -1193,22 +1206,41 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         layout: {
-                             padding: { top: 30, left: 10, right: 20, bottom: 0 }
+                             // INCREASED PADDING to prevent cutoff
+                             padding: { top: 40, left: 10, right: 100, bottom: 0 }
                         },
                         scales: {
                             x: { 
                                 type: 'time', 
                                 time: { 
                                     unit: 'day',
-                                    tooltipFormat: 'yyyy-MM-dd' 
+                                    tooltipFormat: 'yyyy-MM-dd',
+                                    displayFormats: {
+                                        day: 'yyyy-MM-dd' // FIX: Explicitly format X axis to YYYY-MM-DD
+                                    }
                                 },
                                 ticks: {
-                                    source: 'data', // Only show ticks for data points
+                                    source: 'data', // FIX: Only show ticks for data points (scans + predictions)
                                     autoSkip: false,
                                     maxRotation: 45,
-                                    minRotation: 45
+                                    minRotation: 45,
+                                    // Custom callback to show Date + Label on X-Axis
+                                    callback: function(value, index, values) {
+                                        const date = new Date(value);
+                                        // Handle timezone offset simply by using split on ISO string part or simple format
+                                        const dStr = date.toISOString().split('T')[0]; 
+                                        // We need to find the label matching this timestamp approximately
+                                        // Date-fns adapter might use local time, ISO string comparison is safer
+                                        // Let's try to find exact match in keys
+                                        let label = '';
+                                        // Simple lookup logic - iterate keys to find matching day
+                                        for (const k in dateLabelMap) {
+                                            if (k === dStr) label = dateLabelMap[k];
+                                        }
+                                        return [dStr, label]; // Array creates multi-line label
+                                    }
                                 },
-                                title: { display: true, text: 'Date' }
+                                title: { display: false } // Hide title to save space for labels
                             },
                             y: { 
                                 type: useLog ? 'logarithmic' : 'linear',
@@ -1297,7 +1329,7 @@
                          const r = calculateSingleVDT(vc, vp, d, isMax);
                          
                          let dStr = r.value ? r.value + 'd' : 'N/A';
-                         if(r.html && r.html.includes('<15mm')) dStr = 'N/A'; // Handle the small new nodule case
+                         if(r.html && r.html.includes('<15mm')) dStr = 'N/A'; 
                          else if(r.value === 'Stable') dStr = 'Stable';
                          // NEW: Blue color coding here too
                          else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:red">${dStr}</b>`;
@@ -1334,8 +1366,8 @@
                 }, 1500);
             };
 
-            // ... (Keep Patient Manager logic unchanged) ...
-             function openPatientManager() {
+            // ... (Manager & Init functions)
+            function openPatientManager() {
                  const searchTerm = patientSearchInput.value.toLowerCase();
                 const showStarredOnly = showStarredOnlyCheckbox.checked;
                 const showPositiveOnly = showPositiveOnlyCheckbox.checked;
@@ -1387,7 +1419,6 @@
                 patientManagerModal.classList.remove('hidden');
             }
 
-            // ... (Helper functions: calculateTotalVdtForPatientData, toggleStar, saveNote, etc.)
              function calculateTotalVdtForPatientData(patientData) {
                 const { tableData: pTableData, isNewNodule: pIsNewNodule } = patientData;
                 const baseReturn = { solidVdtHtml: '-', coreVdtHtml: '-', ggoVdtHtml: '-', isPositive: false };
@@ -1408,6 +1439,7 @@
                     if (result.value && result.value !== 'Stable') {
                         if (vdtNum > 0 && vdtNum <= 400) styledHtml = `<strong style="color: #d9534f;">${display}</strong>`;
                         else if (vdtNum > 400 && vdtNum <= 600) styledHtml = `<strong style="color: #f0ad4e;">${display}</strong>`;
+                        else if (vdtNum < 0 && vdtNum >= -400) styledHtml = `<strong style="color: #3498db;">${display}</strong>`;
                     }
                     return { html: styledHtml, numeric: vdtNum };
                 }
