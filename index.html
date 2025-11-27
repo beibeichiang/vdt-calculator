@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     
@@ -527,7 +526,7 @@
 
     <div class="container">
         <div class="header-container">
-            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.9.1</span></h1>
+            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.9.2</span></h1>
             <div class="header-actions">
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
                 <button class="control-btn export-btn" id="export-btn">Export CSV</button>
@@ -661,12 +660,20 @@
             </div>
             <ul class="changelog-list">
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.9.1 - Input Interaction Fix</div>
+                    <div class="changelog-version">v2.9.2 - Visualization & Navigation</div>
                     <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Smooth Typing:</strong> Fixed input interruption bug. Volume inputs no longer lose focus while typing.</li>
-                            <li><strong>Performance:</strong> Chart updates are now efficient and don't trigger full table redraws during data entry.</li>
+                            <li><strong>Chart:</strong> X-Axis labels are now horizontal for better readability.</li>
+                            <li><strong>Table:</strong> Added Enter key support to jump to the corresponding cell in the next row.</li>
+                        </ul>
+                    </div>
+                </li>
+                 <li class="changelog-item">
+                    <div class="changelog-version">v2.9.1 - Input Interaction Fix</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Smooth Typing:</strong> Fixed input interruption bug.</li>
                         </ul>
                     </div>
                 </li>
@@ -674,17 +681,7 @@
                     <div class="changelog-version">v2.9 - Chart X-Axis Optimization</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Streamlined X-Axis:</strong> The chart now displays Scan Names (e.g., "Baseline", "1st Annual") directly on the X-Axis along with the date.</li>
-                             <li><strong>Clean Data Labels:</strong> Chart bubbles now only show Volume and VDT.</li>
-                        </ul>
-                    </div>
-                </li>
-                 <li class="changelog-item">
-                    <div class="changelog-version">v2.8 - Full Width & Color Fix</div>
-                    <div class="changelog-desc">
-                        <ul>
-                             <li><strong>Adaptive Layout:</strong> Page now fits 100% width correctly.</li>
-                             <li><strong>Visual Fix:</strong> Restored Color Coding for Total VDT results.</li>
+                            <li><strong>Streamlined X-Axis:</strong> Scan Names are displayed directly on the X-Axis.</li>
                         </ul>
                     </div>
                 </li>
@@ -909,10 +906,34 @@
                     });
 
                     // FIX: Pass false to prevent re-rendering and focus loss on input
-                    tr.querySelector('.solid-input').addEventListener('input', (e) => updateData(e, 'solid', false));
-                    tr.querySelector('.core-input').addEventListener('input', (e) => updateData(e, 'core', false));
-                    tr.querySelector('.nonsolid-input').addEventListener('input', (e) => updateData(e, 'nonsolid', false));
-                    
+                    const inputs = tr.querySelectorAll('input[type="number"], input[type="text"]');
+                    inputs.forEach(input => {
+                         // Store logic for volume inputs separately if needed, but here mainly for enter key
+                         // Attach updateData listeners
+                         if (input.classList.contains('solid-input')) input.addEventListener('input', (e) => updateData(e, 'solid', false));
+                         if (input.classList.contains('core-input')) input.addEventListener('input', (e) => updateData(e, 'core', false));
+                         if (input.classList.contains('nonsolid-input')) input.addEventListener('input', (e) => updateData(e, 'nonsolid', false));
+                         
+                         // Enter Key Navigation
+                         input.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const currentTr = input.closest('tr');
+                                const nextTr = currentTr.nextElementSibling;
+                                if (nextTr) {
+                                    // Find same class in next row
+                                    const className = input.classList[0]; // e.g. solid-input
+                                    if (className) {
+                                        const nextInput = nextTr.querySelector(`.${className}`);
+                                        if (nextInput) nextInput.focus();
+                                    }
+                                } else {
+                                    input.blur();
+                                }
+                            }
+                         });
+                    });
+
                     tr.querySelector('.delete-row-btn').addEventListener('click', () => deleteRow(rowId));
                     
                     const radio = tr.querySelector('.baseline-radio');
@@ -1121,7 +1142,6 @@
                     dateLabelMap[dStr] = d.customLabel || 'Scan';
                 });
                 
-                // Add prediction labels to map
                 if (predictionCheckbox.checked) {
                     dateLabelMap[date3m.toISOString().split('T')[0]] = '+3m Pred';
                     dateLabelMap[date1y.toISOString().split('T')[0]] = '+1y Pred';
@@ -1196,17 +1216,14 @@
                     addPredLine('Non-solid', '#2ecc71', last.nonsolid, totG);
                 }
 
-                // Force plugin registration locally for chart instance just in case
                 volumeChart = new Chart(ctx, {
                     type: 'line',
-                    // FIX: Register DataLabels globally for stability
                     plugins: [ChartDataLabels],
                     data: { datasets },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         layout: {
-                             // INCREASED PADDING to prevent cutoff
                              padding: { top: 40, left: 10, right: 100, bottom: 0 }
                         },
                         scales: {
@@ -1216,31 +1233,25 @@
                                     unit: 'day',
                                     tooltipFormat: 'yyyy-MM-dd',
                                     displayFormats: {
-                                        day: 'yyyy-MM-dd' // FIX: Explicitly format X axis to YYYY-MM-DD
+                                        day: 'yyyy-MM-dd' 
                                     }
                                 },
                                 ticks: {
-                                    source: 'data', // FIX: Only show ticks for data points (scans + predictions)
+                                    source: 'data',
                                     autoSkip: false,
-                                    maxRotation: 45,
-                                    minRotation: 45,
-                                    // Custom callback to show Date + Label on X-Axis
+                                    maxRotation: 0, // FIX: Horizontal labels
+                                    minRotation: 0,
                                     callback: function(value, index, values) {
                                         const date = new Date(value);
-                                        // Handle timezone offset simply by using split on ISO string part or simple format
                                         const dStr = date.toISOString().split('T')[0]; 
-                                        // We need to find the label matching this timestamp approximately
-                                        // Date-fns adapter might use local time, ISO string comparison is safer
-                                        // Let's try to find exact match in keys
                                         let label = '';
-                                        // Simple lookup logic - iterate keys to find matching day
                                         for (const k in dateLabelMap) {
                                             if (k === dStr) label = dateLabelMap[k];
                                         }
-                                        return [dStr, label]; // Array creates multi-line label
+                                        return [dStr, label]; 
                                     }
                                 },
-                                title: { display: false } // Hide title to save space for labels
+                                title: { display: false }
                             },
                             y: { 
                                 type: useLog ? 'logarithmic' : 'linear',
@@ -1248,7 +1259,6 @@
                             }
                         },
                         plugins: {
-                            // Force display true
                             datalabels: { display: true },
                             tooltip: { enabled: false }, 
                             legend: { position: 'bottom' }
@@ -1265,7 +1275,6 @@
                 if (dataForCalc.length < 1) return;
                 
                 const numCols = dataForCalc.length > 1 ? dataForCalc.length * 2 - 1 : 1;
-                // NEW: Background transparent, Font Color White
                 const cellStyle = "border: none; padding: 0.01in; text-align: center; font-family: Arial; font-size: 11pt; color: white; background-color: transparent;";
                 const tableStyle = `font-family: Arial; font-size: 11pt; border-collapse: collapse; border: none; background-color: transparent; table-layout: fixed; width: ${numCols * 100}px;`;
                 
@@ -1284,7 +1293,6 @@
                 
                 let disp = res.value ? res.value + 'd' : 'N/A';
                 if(res.value === 'Stable') disp = 'Stable';
-                // NEW: Blue color coding for fast shrinking
                 else if(parseFloat(res.value) > 0 && parseFloat(res.value) <= 400) disp = `<b style="color:red">${disp}</b>`;
                 else if(parseFloat(res.value) > 400 && parseFloat(res.value) <= 600) disp = `<b style="color:orange">${disp}</b>`;
                 else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:#3498db">${disp}</b>`;
@@ -1331,7 +1339,6 @@
                          let dStr = r.value ? r.value + 'd' : 'N/A';
                          if(r.html && r.html.includes('<15mm')) dStr = 'N/A'; 
                          else if(r.value === 'Stable') dStr = 'Stable';
-                         // NEW: Blue color coding here too
                          else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:red">${dStr}</b>`;
                          else if(parseFloat(r.value) > 400 && parseFloat(r.value) <= 600) dStr = `<b style="color:orange">${dStr}</b>`;
                          else if(parseFloat(r.value) < 0 && parseFloat(r.value) >= -400) dStr = `<b style="color:#3498db">${dStr}</b>`;
@@ -1366,7 +1373,7 @@
                 }, 1500);
             };
 
-            // ... (Manager & Init functions)
+            // ... (Patient Manager Functions) ...
             function openPatientManager() {
                  const searchTerm = patientSearchInput.value.toLowerCase();
                 const showStarredOnly = showStarredOnlyCheckbox.checked;
