@@ -685,6 +685,76 @@
                         </ul>
                     </div>
                 </li>
+                 <li class="changelog-item">
+                    <div class="changelog-version">v2.8 - Full Width & Color Fix</div>
+                    <div class="changelog-desc">
+                        <ul>
+                             <li><strong>Adaptive Layout:</strong> Page now fits 100% width correctly.</li>
+                             <li><strong>Visual Fix:</strong> Restored Color Coding for Total VDT results.</li>
+                        </ul>
+                    </div>
+                </li>
+                 <li class="changelog-item">
+                    <div class="changelog-version">v2.7 - Bug Fixes & Optimization</div>
+                    <div class="changelog-desc">
+                        <ul>
+                             <li><strong>Critical Fixes:</strong> Resolved chart crashing and copy report errors.</li>
+                             <li><strong>Chart Labels:</strong> Added robust data labels showing Scan Name, Volume, and VDT.</li>
+                        </ul>
+                    </div>
+                </li>
+                 <li class="changelog-item">
+                    <div class="changelog-version">v2.6 - Reporting & Chart Upgrade</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Dark Mode Ready Report:</strong> Copied reports now have transparent backgrounds and white text.</li>
+                            <li><strong>New Risk Color:</strong> Added blue coding for "Fast Shrinking" VDTs.</li>
+                        </ul>
+                    </div>
+                </li>
+                 <li class="changelog-item">
+                    <div class="changelog-version">v2.5 - Charting & X-Axis Refinement</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Clean X-Axis:</strong> Chart now only displays ticks for actual Scan Dates plus prediction dates.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v2.4 - Clinical Protocol Naming</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Automatic Scan Labeling:</strong> Auto-names scans based on intervals from Baseline (e.g., "1st Annual", "Baseline+3m").</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v2.3 - Smart Baseline</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Smart Scan Naming:</strong> Select a Baseline (BL) scan to automatically label subsequent scans.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v2.0 - Non-solid & Charting</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li>Added full support for Non-solid (GGO) components.</li>
+                            <li>Integrated Non-solid data into Charts.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v1.0 - Initial Release</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li>Basic VDT calculation for Solid and Core volumes.</li>
+                            <li>Patient ID saving/loading functionality.</li>
+                            <li>Dynamic table with Add/Remove rows.</li>
+                        </ul>
+                    </div>
+                </li>
             </ul>
         </div>
     </div>
@@ -1216,6 +1286,7 @@
                     addPredLine('Non-solid', '#2ecc71', last.nonsolid, totG);
                 }
 
+                // Force plugin registration locally for chart instance just in case
                 volumeChart = new Chart(ctx, {
                     type: 'line',
                     plugins: [ChartDataLabels],
@@ -1237,10 +1308,11 @@
                                     }
                                 },
                                 ticks: {
-                                    source: 'data',
+                                    source: 'data', // FIX: Only show ticks for data points (scans + predictions)
                                     autoSkip: false,
                                     maxRotation: 0, // FIX: Horizontal labels
                                     minRotation: 0,
+                                    // Custom callback to show Date + Label on X-Axis
                                     callback: function(value, index, values) {
                                         const date = new Date(value);
                                         const dStr = date.toISOString().split('T')[0]; 
@@ -1275,6 +1347,7 @@
                 if (dataForCalc.length < 1) return;
                 
                 const numCols = dataForCalc.length > 1 ? dataForCalc.length * 2 - 1 : 1;
+                // NEW: Background transparent, Font Color White
                 const cellStyle = "border: none; padding: 0.01in; text-align: center; font-family: Arial; font-size: 11pt; color: white; background-color: transparent;";
                 const tableStyle = `font-family: Arial; font-size: 11pt; border-collapse: collapse; border: none; background-color: transparent; table-layout: fixed; width: ${numCols * 100}px;`;
                 
