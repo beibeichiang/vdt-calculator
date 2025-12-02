@@ -526,7 +526,7 @@
 
     <div class="container">
         <div class="header-container">
-            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.9.5</span></h1>
+            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.9.6</span></h1>
             <div class="header-actions">
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
                 <button class="control-btn export-btn" id="export-btn">Export CSV</button>
@@ -660,20 +660,21 @@
             </div>
             <ul class="changelog-list">
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.9.5 - Naming & Logic Refine</div>
+                    <div class="changelog-version">v2.9.6 - Input & Focus Optimization</div>
                     <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Collision Detection:</strong> Scan labels like "1st Annual" now check for duplicates. If a label is already taken by an earlier scan, subsequent ones automatically get "+3m" suffixes (e.g., "1st Annual" -> "1st Annual+3m").</li>
+                            <li><strong>Smart Focus:</strong> Fixed input focus loss. Table rows are now preserved (not destroyed) during updates, ensuring seamless typing.</li>
+                            <li><strong>Enter Key Navigation:</strong> Pressing Enter on Date or Volume inputs now intelligently jumps focus to the next relevant row.</li>
                         </ul>
                     </div>
                 </li>
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.9.4 - Workflow Polish</div>
+                    <div class="changelog-version">v2.9.3 - Logic & Interaction Update</div>
+                    <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Smart Annual Logic:</strong> Intervals >9.5 months are now classified as "Annual".</li>
-                            <li><strong>Seamless Entry:</strong> Enter key now jumps to next row instead of resorting.</li>
+                            <li><strong>Smarter Annual Labeling:</strong> Scans >9.5 months after Baseline are now recognized as "Annual".</li>
                         </ul>
                     </div>
                 </li>
@@ -682,7 +683,14 @@
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Chart:</strong> X-Axis labels are now horizontal for better readability.</li>
-                            <li><strong>Table:</strong> Added Enter key support to jump to the corresponding cell in the next row.</li>
+                        </ul>
+                    </div>
+                </li>
+                 <li class="changelog-item">
+                    <div class="changelog-version">v2.9 - Chart X-Axis Optimization</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Streamlined X-Axis:</strong> Scan Names are displayed directly on the X-Axis.</li>
                         </ul>
                     </div>
                 </li>
@@ -766,9 +774,112 @@
             }
 
             // --- Core Logic ---
+            function createRowElement(dataRow) {
+                const tr = document.createElement('tr');
+                tr.dataset.id = dataRow.id;
+                tr.innerHTML = `
+                    <td class="row-controls">
+                        <button class="delete-row-btn" title="Delete">&times;</button>
+                    </td>
+                    <td>
+                        <input type="radio" name="baseline-group" class="baseline-radio" ${dataRow.isBaseline ? 'checked' : ''}>
+                    </td>
+                    <td class="scan-number scan-number-col">
+                         <input type="text" class="scan-label-input" value="${dataRow.customLabel || ''}" placeholder="-">
+                    </td>
+                    <td><input type="text" class="date-input" value="${dataRow.date}" placeholder="YYYY-MM-DD"></td>
+                    <td><input type="number" class="solid-input" value="${dataRow.solid}" min="0" step="0.1"></td>
+                    <td><input type="number" class="core-input" value="${dataRow.core}" min="0" step="0.1"></td>
+                    <td><input type="number" class="nonsolid-input" value="${dataRow.nonsolid || ''}" min="0" step="0.1"></td>
+                    <td class="result-cell vdt-solid-result">-</td>
+                    <td class="result-cell vdt-core-result">-</td>
+                    <td class="result-cell vdt-ggo-result">-</td>
+                `;
+
+                // Attach Listeners immediately
+                const dateInput = tr.querySelector('.date-input');
+                dateInput.addEventListener('change', (e) => {
+                    format_date(e);
+                    dataRow.date = e.target.value;
+                    renderTable(); // Resort
+                });
+                dateInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        format_date(e);
+                        dataRow.date = e.target.value;
+                        renderTable();
+                        // Focus next row date input
+                        const allRows = Array.from(tableBody.querySelectorAll('tr'));
+                        const myIdx = allRows.indexOf(tr);
+                        if (myIdx < allRows.length - 1) {
+                            allRows[myIdx + 1].querySelector('.date-input').focus();
+                        }
+                    }
+                });
+
+                const inputs = tr.querySelectorAll('input[type="number"]');
+                inputs.forEach(input => {
+                    input.addEventListener('input', (e) => {
+                        // Direct update model
+                        if (input.classList.contains('solid-input')) dataRow.solid = e.target.value;
+                        if (input.classList.contains('core-input')) dataRow.core = e.target.value;
+                        if (input.classList.contains('nonsolid-input')) dataRow.nonsolid = e.target.value;
+                        // Just calc, no re-render
+                        calculateAll();
+                    });
+                    input.addEventListener('keydown', (e) => {
+                        if(e.key === 'Enter') {
+                            e.preventDefault();
+                            const allRows = Array.from(tableBody.querySelectorAll('tr'));
+                            const myIdx = allRows.indexOf(tr);
+                            if (myIdx < allRows.length - 1) {
+                                const nextTr = allRows[myIdx + 1];
+                                const className = input.classList[0];
+                                nextTr.querySelector(`.${className}`).focus();
+                            } else {
+                                input.blur();
+                            }
+                        }
+                    });
+                });
+
+                tr.querySelector('.delete-row-btn').addEventListener('click', () => deleteRow(dataRow.id));
+
+                const radio = tr.querySelector('.baseline-radio');
+                radio.addEventListener('click', (e) => {
+                    if (dataRow.isBaseline) {
+                        e.preventDefault();
+                        dataRow.isBaseline = false;
+                        setTimeout(() => renderTable(), 0);
+                    } else {
+                        setBaseline(dataRow.id);
+                    }
+                });
+
+                const labelInput = tr.querySelector('.scan-label-input');
+                labelInput.addEventListener('input', (e) => {
+                     dataRow.customLabel = e.target.value;
+                });
+                
+                return tr;
+            }
+            
+            function updateRowVisuals(tr, dataRow) {
+                // Update Inputs if they differ from model (e.g. after sort)
+                // But careful not to break focus if user is typing
+                const dateInp = tr.querySelector('.date-input');
+                if (document.activeElement !== dateInp) dateInp.value = dataRow.date;
+
+                const labelInp = tr.querySelector('.scan-label-input');
+                if (document.activeElement !== labelInp) labelInp.value = dataRow.customLabel || '';
+
+                // Radios
+                tr.querySelector('.baseline-radio').checked = dataRow.isBaseline;
+            }
+
             function renderTable() {
                 const sortOrder = sortOrderSelect.value;
-                // Clone for visual sorting only
                 const sortedData = [...tableData].sort((a, b) => {
                     const dateA = parseDateString(a.date) || 0;
                     const dateB = parseDateString(b.date) || 0;
@@ -776,32 +887,19 @@
                     return dateA - dateB;
                 });
 
-                tableBody.innerHTML = '';
-                sortedData.forEach(dataRow => {
-                    const tr = document.createElement('tr');
-                    tr.dataset.id = dataRow.id;
-                    tr.innerHTML = `
-                        <td class="row-controls">
-                            <button class="delete-row-btn" title="Delete">&times;</button>
-                        </td>
-                        <td>
-                            <input type="radio" name="baseline-group" class="baseline-radio" ${dataRow.isBaseline ? 'checked' : ''}>
-                        </td>
-                        <td class="scan-number scan-number-col">
-                             <input type="text" class="scan-label-input" value="${dataRow.customLabel || ''}" placeholder="-">
-                        </td>
-                        <td><input type="text" class="date-input" value="${dataRow.date}" placeholder="YYYY-MM-DD"></td>
-                        <td><input type="number" class="solid-input" value="${dataRow.solid}" min="0" step="0.1"></td>
-                        <td><input type="number" class="core-input" value="${dataRow.core}" min="0" step="0.1"></td>
-                        <td><input type="number" class="nonsolid-input" value="${dataRow.nonsolid || ''}" min="0" step="0.1"></td>
-                        <td class="result-cell vdt-solid-result">-</td>
-                        <td class="result-cell vdt-core-result">-</td>
-                        <td class="result-cell vdt-ggo-result">-</td>
-                    `;
-                    tableBody.appendChild(tr);
-                });
+                // DOM Diffing / Reordering
+                // 1. Detach all
+                // 2. Re-append in order (creating if missing)
                 
-                bindEventListeners();
+                sortedData.forEach(dataRow => {
+                    let tr = tableBody.querySelector(`tr[data-id="${dataRow.id}"]`);
+                    if (!tr) {
+                        tr = createRowElement(dataRow);
+                    }
+                    tableBody.appendChild(tr); // Moves it to end of list
+                    updateRowVisuals(tr, dataRow);
+                });
+
                 updateScanLabels(); 
                 calculateAll();
             }
@@ -809,6 +907,7 @@
             function getScanLabel(months) {
                 if (months <= 0.5) return "Baseline";
                 
+                // Adjusted Logic: Annual starts earlier (9.5m)
                 if (months < 9.5) {
                     if (months >= 1.5 && months < 4.5) return "Baseline+3m";
                     if (months >= 4.5 && months < 7.5) return "Baseline+6m";
@@ -822,7 +921,7 @@
                 else if (years === 2) baseLabel = "2nd Annual";
                 else baseLabel = `${years}th Annual`;
 
-                // Widen tolerance for plain Annual
+                // Widen tolerance for plain Annual to 2.5m (9.5-14.5m)
                 if (remainder <= 2.5) return baseLabel;
                 
                 const floorYear = Math.floor(months / 12);
@@ -836,35 +935,26 @@
                 if (extra >= 4.5 && extra < 7.5) return `${baseLabel}+6m`;
                 if (extra >= 7.5 && extra < 10.5) return `${baseLabel}+9m`;
                 
-                return baseLabel; // Fallback
+                return baseLabel; 
             }
 
             function updateScanLabels() {
                 const chronoData = [...tableData]
                     .map(d => ({...d, dateObj: parseDateString(d.date)}))
                     .filter(d => d.dateObj)
-                    .sort((a, b) => b.dateObj - a.dateObj); // earliest date at index 0
-                // Wait, previous sort was b.dateObj - a.dateObj (Newest First) if we iterate chronologically we should sort a - b (Oldest First)
-                // Let's sort chronologically (Oldest -> Newest) to detect duplicates in order
-                const ascendingData = [...chronoData].sort((a, b) => a.dateObj - b.dateObj);
-
-                const baselineRow = ascendingData.find(d => d.isBaseline);
+                    .sort((a, b) => b.dateObj - a.dateObj); // Newest first? No, calculate based on Oldest->Newest for proper labeling?
+                // Actually chronology is best for label logic
                 
-                // Track used labels to prevent duplicates
+                // Sort Chronologically for labeling logic
+                const ascendingData = [...chronoData].sort((a, b) => a.dateObj - b.dateObj);
+                const baselineRow = ascendingData.find(d => d.isBaseline);
                 const usedLabels = new Set();
 
-                // We iterate the logical data, then find the DOM row to update
                 ascendingData.forEach(currentScan => {
-                     const rowId = currentScan.id;
-                     // Find the actual data object in master tableData to update customLabel model
-                     const dataRow = tableData.find(d => d.id === rowId);
-                     
-                     // Find DOM element if it exists (might not be rendered if filter? no filter on main table)
-                     // We need to find the input in DOM to update visual value if user hasn't edited it
-                     // The DOM rows might be in different order (display order)
-                     // So we find row by dataset ID
-                     const row = Array.from(tableBody.querySelectorAll('tr')).find(r => parseInt(r.dataset.id) === rowId);
-                     const input = row ? row.querySelector('.scan-label-input') : null;
+                     const dataRow = tableData.find(d => d.id === currentScan.id);
+                     // Find input in DOM
+                     const tr = tableBody.querySelector(`tr[data-id="${dataRow.id}"]`);
+                     const input = tr ? tr.querySelector('.scan-label-input') : null;
                      
                      let generatedLabel = '-';
 
@@ -880,50 +970,23 @@
                                   const months = Math.round(diffTime / (1000 * 60 * 60 * 24 * 30.44));
                                   generatedLabel = getScanLabel(months);
                                   
-                                  // DUPLICATE CHECK
+                                  // Collision Detection
                                   if (usedLabels.has(generatedLabel)) {
-                                      // If "1st Annual" is taken, make it "1st Annual+3m"
-                                      // If "1st Annual+3m" is taken, make it "+6m" etc
-                                      // Simple fix: append +3m.
-                                      // But wait, if getScanLabel returned "1st Annual", and it's taken,
-                                      // it means this scan is later than the previous "1st Annual" but close enough to be called that.
-                                      // We should force it to the next interval.
-                                      
-                                      // Check if it ends in "Annual"
-                                      if (generatedLabel.endsWith("Annual")) {
-                                          generatedLabel = generatedLabel + "+3m";
-                                      } else if (generatedLabel.endsWith("+3m")) {
-                                          generatedLabel = generatedLabel.replace("+3m", "+6m");
-                                      } else if (generatedLabel.endsWith("+6m")) {
-                                          generatedLabel = generatedLabel.replace("+6m", "+9m");
-                                      }
-                                      
-                                      // Re-check just in case? (Recursive? For now single step is enough for typical clinical flow)
-                                      if (usedLabels.has(generatedLabel)) {
-                                          if (generatedLabel.endsWith("+3m")) generatedLabel = generatedLabel.replace("+3m", "+6m");
-                                          else if (generatedLabel.endsWith("+6m")) generatedLabel = generatedLabel.replace("+6m", "+9m");
-                                      }
+                                      if (generatedLabel.endsWith("Annual")) generatedLabel += "+3m";
+                                      else if (generatedLabel.endsWith("+3m")) generatedLabel = generatedLabel.replace("+3m", "+6m");
+                                      else if (generatedLabel.endsWith("+6m")) generatedLabel = generatedLabel.replace("+6m", "+9m");
                                   }
                              }
                          }
                      } else {
-                         // Fallback Standard Numbering (Scan 0, -1...)
-                         // Chrono index relative to whole set
-                         // But 'scan-number' logic usually is relative to newest = 0
-                         // Let's keep the old fallback logic for display if no baseline
-                         // To be consistent with previous code:
-                         // Scan 0 is newest.
-                         // We need to find index in the *descending* list for Scan #
-                         const descIndex = chronoData.findIndex(d => d.id === rowId); // chronoData is sorted Newest First in updateScanLabels above?
-                         // Wait, chronoData declaration above was map... sort(b-a). So it IS Newest First.
-                         // But for label collision detection we used ascendingData.
-                         // Let's stick to simple Scan # if no baseline
+                         // Fallback: desc index
+                         const descIndex = chronoData.findIndex(d => d.id === currentScan.id);
                          generatedLabel = descIndex === 0 ? 'Scan 0' : `Scan -${descIndex}`;
                      }
-
+                     
                      usedLabels.add(generatedLabel);
 
-                     // Update Model & View
+                     // Update Model & View if not focused
                      if (input && document.activeElement !== input) {
                          dataRow.customLabel = generatedLabel; 
                          input.value = generatedLabel;
@@ -938,7 +1001,12 @@
 
             function deleteRow(rowId) {
                 if (tableData.length > 0) {
+                    // Remove from data
                     tableData = tableData.filter(d => d.id !== rowId);
+                    // Remove from DOM
+                    const tr = tableBody.querySelector(`tr[data-id="${rowId}"]`);
+                    if(tr) tr.remove();
+                    
                     renderTable();
                 }
             }
@@ -953,6 +1021,8 @@
             function clearAll() {
                 patientIdInput.value = '';
                 tableData = [];
+                // Clean DOM
+                tableBody.innerHTML = '';
                 newNoduleCheckbox.checked = false;
                 logScaleCheckbox.checked = false;
                 predictionCheckbox.checked = false;
@@ -961,103 +1031,8 @@
             }
 
             // --- Data & Events ---
-            function bindEventListeners() {
-                tableBody.querySelectorAll('tr').forEach(tr => {
-                    const rowId = parseInt(tr.dataset.id);
-                    const dataRow = tableData.find(d => d.id === rowId);
-                    
-                    const dateInput = tr.querySelector('.date-input');
-                    // Keydown for Enter Logic on Date
-                    dateInput.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            // 1. Update Model
-                            dataRow.date = e.target.value;
-                            // 2. Update Labels and Calcs (In background, NO renderTable)
-                            updateScanLabels();
-                            calculateAll();
-                            
-                            // 3. Focus Next Row's Date (Visual next)
-                            const currentTr = dateInput.closest('tr');
-                            const nextTr = currentTr.nextElementSibling;
-                            if (nextTr) {
-                                const nextInput = nextTr.querySelector('.date-input');
-                                if (nextInput) nextInput.focus();
-                            } else {
-                                dateInput.blur(); // Blur triggers the change event which sorts
-                            }
-                        }
-                    });
-                    
-                    // On Blur (Change), re-sort and re-render table structure
-                    dateInput.addEventListener('change', (e) => {
-                        format_date(e);
-                        dataRow.date = e.target.value;
-                        // This is where physical re-sorting happens
-                        renderTable(); 
-                    });
-
-                    // FIX: Pass false to prevent re-rendering and focus loss on input
-                    const inputs = tr.querySelectorAll('input[type="number"], input[type="text"]');
-                    inputs.forEach(input => {
-                         if (input.classList.contains('solid-input')) input.addEventListener('input', (e) => updateData(e, 'solid', false));
-                         if (input.classList.contains('core-input')) input.addEventListener('input', (e) => updateData(e, 'core', false));
-                         if (input.classList.contains('nonsolid-input')) input.addEventListener('input', (e) => updateData(e, 'nonsolid', false));
-                         
-                         // Enter Key Navigation for Volumes (unchanged)
-                         input.addEventListener('keydown', (e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                const currentTr = input.closest('tr');
-                                const nextTr = currentTr.nextElementSibling;
-                                if (nextTr) {
-                                    const className = input.classList[0]; 
-                                    if (className) {
-                                        const nextInput = nextTr.querySelector(`.${className}`);
-                                        if (nextInput) nextInput.focus();
-                                    }
-                                } else {
-                                    input.blur();
-                                }
-                            }
-                         });
-                    });
-
-                    tr.querySelector('.delete-row-btn').addEventListener('click', () => deleteRow(rowId));
-                    
-                    const radio = tr.querySelector('.baseline-radio');
-                    radio.addEventListener('click', (e) => {
-                        if (dataRow.isBaseline) {
-                            e.preventDefault();
-                            dataRow.isBaseline = false;
-                            setTimeout(() => renderTable(), 0);
-                        } else {
-                            setBaseline(rowId);
-                        }
-                    });
-                    
-                    const labelInput = tr.querySelector('.scan-label-input');
-                    labelInput.addEventListener('input', (e) => {
-                         dataRow.customLabel = e.target.value;
-                    });
-
-                    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('paste', handlePaste));
-                });
-            }
-
-            function updateData(event, key, forceRender = true) {
-                const rowId = parseInt(event.target.closest('tr').dataset.id);
-                const dataRow = tableData.find(d => d.id === rowId);
-                if (dataRow) dataRow[key] = event.target.value;
-                
-                if (key === 'date' && !forceRender) {
-                     calculateAll(); 
-                } else {
-                     if(forceRender) renderTable();
-                     else calculateAll();
-                }
-            }
-
+            // Moved logic into createRowElement
+            
             function format_date(event) {
                  let value = event.target.value.replace(/-/g, '');
                 if (value.length === 8 && !isNaN(value)) {
@@ -1304,6 +1279,7 @@
                     addPredLine('Non-solid', '#2ecc71', last.nonsolid, totG);
                 }
 
+                // Force plugin registration locally for chart instance just in case
                 volumeChart = new Chart(ctx, {
                     type: 'line',
                     plugins: [ChartDataLabels],
@@ -1325,10 +1301,11 @@
                                     }
                                 },
                                 ticks: {
-                                    source: 'data',
+                                    source: 'data', // FIX: Only show ticks for data points (scans + predictions)
                                     autoSkip: false,
-                                    maxRotation: 0, 
+                                    maxRotation: 0, // FIX: Horizontal labels
                                     minRotation: 0,
+                                    // Custom callback to show Date + Label on X-Axis
                                     callback: function(value, index, values) {
                                         const date = new Date(value);
                                         const dStr = date.toISOString().split('T')[0]; 
