@@ -276,7 +276,7 @@
         /* Column widths */
         .row-controls { width: 35px; }
         .baseline-col { width: 35px; }
-        .scan-number-col { width: 130px; font-weight: 600; color: var(--text-light); }
+        .scan-number-col { width: 110px; font-weight: 600; color: var(--text-light); }
         
         .baseline-radio {
             cursor: pointer;
@@ -526,7 +526,7 @@
 
     <div class="container">
         <div class="header-container">
-            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.10</span></h1>
+            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.10.1</span></h1>
             <div class="header-actions">
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
                 <button class="control-btn export-btn" id="export-btn">Export CSV</button>
@@ -659,30 +659,22 @@
                 <button id="changelog-close-btn" class="modal-close-btn" style="font-size: 24px; background:none; border:none; cursor:pointer;">&times;</button>
             </div>
             <ul class="changelog-list">
-                <li class="changelog-item">
-                    <div class="changelog-version">v2.10 - Smart Biennial & Fixes</div>
+                 <li class="changelog-item">
+                    <div class="changelog-version">v2.10.1 - Data Loading Hotfix</div>
                     <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Smart Biennial Logic:</strong> If a scan is ~24 months from baseline but "1st Annual" is missing, it is now correctly labeled "Biennial" instead of "2nd Annual".</li>
-                            <li><strong>Duplicate Prevention:</strong> Fixed logic to correctly label "1st Annual+3m" when a "1st Annual" already exists.</li>
-                            <li><strong>Enter Key Fix:</strong> Pressing Enter on Date input now correctly calculates VDT and jumps to the next row's date field without resorting/breaking focus.</li>
+                            <li><strong>Critical Fix:</strong> Fixed bug where volume data would appear blank when loading a case from the Worklist.</li>
                         </ul>
                     </div>
                 </li>
-                 <li class="changelog-item">
-                    <div class="changelog-version">v2.9.3 - Logic & Interaction Update</div>
+                <li class="changelog-item">
+                    <div class="changelog-version">v2.10 - Smart Biennial & Fixes</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Smarter Annual Labeling:</strong> Scans >9.5 months after Baseline are now recognized as "Annual".</li>
-                        </ul>
-                    </div>
-                </li>
-                 <li class="changelog-item">
-                    <div class="changelog-version">v2.4 - Clinical Protocol Naming</div>
-                    <div class="changelog-desc">
-                        <ul>
-                            <li><strong>Automatic Scan Labeling:</strong> Auto-names scans based on intervals from Baseline.</li>
+                            <li><strong>Smart Biennial Logic:</strong> Correctly labels "Biennial" scans.</li>
+                            <li><strong>Duplicate Prevention:</strong> Auto-suffixes "+3m" for frequent scans.</li>
+                            <li><strong>Enter Key Fix:</strong> Improved keyboard navigation in table.</li>
                         </ul>
                     </div>
                 </li>
@@ -761,6 +753,9 @@
             function createRowElement(dataRow) {
                 const tr = document.createElement('tr');
                 tr.dataset.id = dataRow.id;
+                // FIX: Ensure values are strings to avoid "undefined" in template
+                const safeVal = (v) => (v === undefined || v === null) ? '' : v;
+                
                 tr.innerHTML = `
                     <td class="row-controls">
                         <button class="delete-row-btn" title="Delete">&times;</button>
@@ -769,12 +764,12 @@
                         <input type="radio" name="baseline-group" class="baseline-radio" ${dataRow.isBaseline ? 'checked' : ''}>
                     </td>
                     <td class="scan-number scan-number-col">
-                         <input type="text" class="scan-label-input" value="${dataRow.customLabel || ''}" placeholder="-">
+                         <input type="text" class="scan-label-input" value="${safeVal(dataRow.customLabel)}" placeholder="-">
                     </td>
-                    <td><input type="text" class="date-input" value="${dataRow.date}" placeholder="YYYY-MM-DD"></td>
-                    <td><input type="number" class="solid-input" value="${dataRow.solid}" min="0" step="0.1"></td>
-                    <td><input type="number" class="core-input" value="${dataRow.core}" min="0" step="0.1"></td>
-                    <td><input type="number" class="nonsolid-input" value="${dataRow.nonsolid || ''}" min="0" step="0.1"></td>
+                    <td><input type="text" class="date-input" value="${safeVal(dataRow.date)}" placeholder="YYYY-MM-DD"></td>
+                    <td><input type="number" class="solid-input" value="${safeVal(dataRow.solid)}" min="0" step="0.1"></td>
+                    <td><input type="number" class="core-input" value="${safeVal(dataRow.core)}" min="0" step="0.1"></td>
+                    <td><input type="number" class="nonsolid-input" value="${safeVal(dataRow.nonsolid)}" min="0" step="0.1"></td>
                     <td class="result-cell vdt-solid-result">-</td>
                     <td class="result-cell vdt-core-result">-</td>
                     <td class="result-cell vdt-ggo-result">-</td>
@@ -802,10 +797,6 @@
                         calculateAll();
                         
                         // Focus next row date input in visual order
-                        // Note: We are NOT sorting here to preserve focus flow.
-                        // The user can see updated labels but rows won't jump until blur.
-                        // Or should we jump? Jumping is disorienting.
-                        // Let's find the TR that follows this one in DOM
                         const nextTr = tr.nextElementSibling;
                         if (nextTr) {
                             nextTr.querySelector('.date-input').focus();
@@ -862,10 +853,21 @@
             
             function updateRowVisuals(tr, dataRow) {
                 const dateInp = tr.querySelector('.date-input');
-                if (document.activeElement !== dateInp) dateInp.value = dataRow.date;
+                if (document.activeElement !== dateInp) dateInp.value = dataRow.date || '';
 
                 const labelInp = tr.querySelector('.scan-label-input');
                 if (document.activeElement !== labelInp) labelInp.value = dataRow.customLabel || '';
+
+                // FIX: Update volume inputs too (handles loadData correctly)
+                const safeVal = (v) => (v === undefined || v === null) ? '' : v;
+                const solidInp = tr.querySelector('.solid-input');
+                if (document.activeElement !== solidInp) solidInp.value = safeVal(dataRow.solid);
+                
+                const coreInp = tr.querySelector('.core-input');
+                if (document.activeElement !== coreInp) coreInp.value = safeVal(dataRow.core);
+                
+                const nonsolidInp = tr.querySelector('.nonsolid-input');
+                if (document.activeElement !== nonsolidInp) nonsolidInp.value = safeVal(dataRow.nonsolid);
 
                 tr.querySelector('.baseline-radio').checked = dataRow.isBaseline;
             }
@@ -908,11 +910,6 @@
                 
                 // Logic for 24 months (2 years)
                 if (years === 2) {
-                    // If previous history included a 1st Annual, this is 2nd Annual.
-                    // If not, this is Biennial.
-                    // We are in a loop in updateScanLabels, so we need context passed in or derived
-                    // For simplicity inside this helper, we assume caller knows context.
-                    // But let's handle standard logic here first.
                     baseLabel = hasFirstAnnual ? "2nd Annual" : "Biennial";
                 } else if (years === 1) {
                     baseLabel = "1st Annual";
@@ -972,8 +969,6 @@
                                   
                                   // COLLISION LOGIC
                                   if (usedLabels.has(generatedLabel)) {
-                                      // If collision, assume it's a subsequent 3m follow up
-                                      // E.g. 1st Annual already exists -> This becomes 1st Annual+3m
                                       if (generatedLabel.endsWith("Annual") || generatedLabel === "Biennial") {
                                           generatedLabel = generatedLabel + "+3m";
                                       } else if (generatedLabel.endsWith("+3m")) {
@@ -982,7 +977,6 @@
                                           generatedLabel = generatedLabel.replace("+6m", "+9m");
                                       }
                                       
-                                      // Re-check for stacked collisions (e.g. three 1st Annuals)
                                       if (usedLabels.has(generatedLabel)) {
                                           if (generatedLabel.endsWith("+3m")) generatedLabel = generatedLabel.replace("+3m", "+6m");
                                           else if (generatedLabel.endsWith("+6m")) generatedLabel = generatedLabel.replace("+6m", "+9m");
@@ -991,15 +985,12 @@
                              }
                          }
                      } else {
-                         // Fallback if no baseline selected
-                         // Find index in descending array for "Scan #"
-                         // Create a temp descending array just to find index
+                         // Fallback
                          const descArr = [...chronoData].reverse();
                          const descIndex = descArr.findIndex(d => d.id === currentScan.id);
                          generatedLabel = descIndex === 0 ? 'Scan 0' : `Scan -${descIndex}`;
                      }
                      
-                     // Update state for next iteration
                      if (generatedLabel.includes("1st Annual")) hasFirstAnnual = true;
                      usedLabels.add(generatedLabel);
 
@@ -1298,7 +1289,6 @@
                     addPredLine('Non-solid', '#2ecc71', last.nonsolid, totG);
                 }
 
-                // Force plugin registration locally for chart instance just in case
                 volumeChart = new Chart(ctx, {
                     type: 'line',
                     plugins: [ChartDataLabels],
@@ -1320,11 +1310,10 @@
                                     }
                                 },
                                 ticks: {
-                                    source: 'data', // FIX: Only show ticks for data points (scans + predictions)
+                                    source: 'data',
                                     autoSkip: false,
-                                    maxRotation: 0, // FIX: Horizontal labels
+                                    maxRotation: 0, 
                                     minRotation: 0,
-                                    // Custom callback to show Date + Label on X-Axis
                                     callback: function(value, index, values) {
                                         const date = new Date(value);
                                         const dStr = date.toISOString().split('T')[0]; 
@@ -1567,6 +1556,10 @@
                     logScaleCheckbox.checked = data.isLogScale || false;
                     predictionCheckbox.checked = data.isPrediction || false;
                     uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d=>d.id)) + 1 : 0;
+                    
+                    // FIX: Clear table before rendering new data to avoid ID collision reusing old DOM rows
+                    tableBody.innerHTML = ''; 
+                    
                     renderTable();
                 }
             }
