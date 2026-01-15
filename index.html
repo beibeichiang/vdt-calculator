@@ -526,7 +526,7 @@
 
     <div class="container">
         <div class="header-container">
-            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.10.1</span></h1>
+            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.11.1</span></h1>
             <div class="header-actions">
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
                 <button class="control-btn export-btn" id="export-btn">Export CSV</button>
@@ -660,11 +660,12 @@
             </div>
             <ul class="changelog-list">
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.10.1 - Data Loading Hotfix</div>
+                    <div class="changelog-version">v2.11.1 - Sequence-Based Naming</div>
                     <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Critical Fix:</strong> Fixed bug where volume data would appear blank when loading a case from the Worklist.</li>
+                            <li><strong>Smart Slot Logic:</strong> Scans are now labeled based on "slots". First scan in annual windows takes the "Annual" slot.</li>
+                            <li><strong>Sequential +3m:</strong> Any scan that isn't an Annual/Biennial anchor is automatically labeled relative to the previous anchor as +3m, +6m, etc. regardless of actual month (preserving "1st 3m", "2nd 3m" sequence).</li>
                         </ul>
                     </div>
                 </li>
@@ -673,8 +674,6 @@
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Smart Biennial Logic:</strong> Correctly labels "Biennial" scans.</li>
-                            <li><strong>Duplicate Prevention:</strong> Auto-suffixes "+3m" for frequent scans.</li>
-                            <li><strong>Enter Key Fix:</strong> Improved keyboard navigation in table.</li>
                         </ul>
                     </div>
                 </li>
@@ -801,7 +800,9 @@
                         if (nextTr) {
                             nextTr.querySelector('.date-input').focus();
                         } else {
-                            dateInput.blur(); // Blur will trigger change -> sort
+                            dateInput.blur(); 
+                            // Ensure resorting happens after blur if needed
+                            setTimeout(() => renderTable(), 10);
                         }
                     }
                 });
@@ -894,48 +895,6 @@
                 calculateAll();
             }
 
-            function getScanLabel(months, hasFirstAnnual) {
-                if (months <= 0.5) return "Baseline";
-                
-                // Short term intervals from baseline
-                if (months < 9.5) {
-                    if (months >= 1.5 && months < 4.5) return "Baseline+3m";
-                    if (months >= 4.5 && months < 7.5) return "Baseline+6m";
-                    if (months >= 7.5 && months < 9.5) return "Baseline+9m";
-                }
-
-                const years = Math.round(months / 12);
-                const remainder = Math.abs(months - (years * 12));
-                let baseLabel = "";
-                
-                // Logic for 24 months (2 years)
-                if (years === 2) {
-                    baseLabel = hasFirstAnnual ? "2nd Annual" : "Biennial";
-                } else if (years === 1) {
-                    baseLabel = "1st Annual";
-                } else {
-                    baseLabel = `${years}th Annual`;
-                }
-
-                // If it's close to annual mark
-                if (remainder <= 2.5) return baseLabel;
-                
-                // If it's Annual + months
-                const floorYear = Math.floor(months / 12);
-                const extra = months - (floorYear * 12);
-                
-                // Determine base label for the floor year again
-                if (floorYear === 1) baseLabel = "1st Annual";
-                else if (floorYear === 2) baseLabel = hasFirstAnnual ? "2nd Annual" : "Biennial";
-                else baseLabel = `${floorYear}th Annual`;
-                
-                if (extra >= 1.5 && extra < 4.5) return `${baseLabel}+3m`;
-                if (extra >= 4.5 && extra < 7.5) return `${baseLabel}+6m`;
-                if (extra >= 7.5 && extra < 10.5) return `${baseLabel}+9m`;
-                
-                return baseLabel; 
-            }
-
             function updateScanLabels() {
                 // Sort Chronologically (Oldest -> Newest)
                 const chronoData = [...tableData]
@@ -944,9 +903,32 @@
                     .sort((a, b) => a.dateObj - b.dateObj); 
 
                 const baselineRow = chronoData.find(d => d.isBaseline);
-                const usedLabels = new Set();
-                let hasFirstAnnual = false; // Track if we've seen a 1st Annual
+                
+                // Track slots filled
+                let firstAnnualScan = null;
+                let secondAnnualScan = null;
+                let biennialScan = null;
 
+                // 1. Identify Anchors First (First scan in window wins)
+                if (baselineRow) {
+                    chronoData.forEach(scan => {
+                        if (scan.id === baselineRow.id) return;
+                        const diffTime = scan.dateObj - baselineRow.dateObj;
+                        const months = diffTime / (1000 * 60 * 60 * 24 * 30.44);
+                        
+                        if (months >= 9.5 && months < 21.5) {
+                            if (!firstAnnualScan) firstAnnualScan = scan;
+                        } else if (months >= 21.5) {
+                            if (firstAnnualScan) {
+                                if (!secondAnnualScan) secondAnnualScan = scan;
+                            } else {
+                                if (!biennialScan) biennialScan = scan;
+                            }
+                        }
+                    });
+                }
+
+                // 2. Assign labels based on Anchors or offsets
                 chronoData.forEach(currentScan => {
                      const dataRow = tableData.find(d => d.id === currentScan.id);
                      const tr = tableBody.querySelector(`tr[data-id="${dataRow.id}"]`);
@@ -958,41 +940,51 @@
                         if (currentScan.id === baselineRow.id) {
                              generatedLabel = "Baseline";
                          } else {
-                             const diffTime = currentScan.dateObj - baselineRow.dateObj;
-                             if (diffTime < 0) {
-                                  const months = Math.round(Math.abs(diffTime) / (1000 * 60 * 60 * 24 * 30.44));
-                                  generatedLabel = `Pre-BL(${months}m)`;
+                             // Check if it's an anchor
+                             if (firstAnnualScan && currentScan.id === firstAnnualScan.id) {
+                                 generatedLabel = "1st Annual";
+                             } else if (secondAnnualScan && currentScan.id === secondAnnualScan.id) {
+                                 generatedLabel = "2nd Annual";
+                             } else if (biennialScan && currentScan.id === biennialScan.id) {
+                                 generatedLabel = "Biennial";
                              } else {
-                                  const months = Math.round(diffTime / (1000 * 60 * 60 * 24 * 30.44));
-                                  // Pass context to label generator
-                                  generatedLabel = getScanLabel(months, hasFirstAnnual);
-                                  
-                                  // COLLISION LOGIC
-                                  if (usedLabels.has(generatedLabel)) {
-                                      if (generatedLabel.endsWith("Annual") || generatedLabel === "Biennial") {
-                                          generatedLabel = generatedLabel + "+3m";
-                                      } else if (generatedLabel.endsWith("+3m")) {
-                                          generatedLabel = generatedLabel.replace("+3m", "+6m");
-                                      } else if (generatedLabel.endsWith("+6m")) {
-                                          generatedLabel = generatedLabel.replace("+6m", "+9m");
-                                      }
-                                      
-                                      if (usedLabels.has(generatedLabel)) {
-                                          if (generatedLabel.endsWith("+3m")) generatedLabel = generatedLabel.replace("+3m", "+6m");
-                                          else if (generatedLabel.endsWith("+6m")) generatedLabel = generatedLabel.replace("+6m", "+9m");
-                                      }
-                                  }
+                                 // Calculate offset relative to nearest preceding anchor
+                                 // "Sequence Priority": count how many scans since that anchor
+                                 let anchorDate = baselineRow.dateObj;
+                                 let anchorLabel = "Baseline";
+                                 
+                                 // Determine relevant anchor by finding the closest one BEFORE this scan
+                                 if (secondAnnualScan && currentScan.dateObj > secondAnnualScan.dateObj) {
+                                     anchorDate = secondAnnualScan.dateObj;
+                                     anchorLabel = "2nd Annual";
+                                 } else if (biennialScan && currentScan.dateObj > biennialScan.dateObj) {
+                                     anchorDate = biennialScan.dateObj;
+                                     anchorLabel = "Biennial";
+                                 } else if (firstAnnualScan && currentScan.dateObj > firstAnnualScan.dateObj) {
+                                     anchorDate = firstAnnualScan.dateObj;
+                                     anchorLabel = "1st Annual";
+                                 }
+                                 
+                                 // Now count position in sequence relative to that anchor
+                                 // Filter scans that are AFTER this anchor and BEFORE/EQUAL current scan
+                                 const sequenceScans = chronoData.filter(s => 
+                                     s.dateObj > anchorDate && s.dateObj <= currentScan.dateObj && 
+                                     s.id !== firstAnnualScan?.id && s.id !== secondAnnualScan?.id && s.id !== biennialScan?.id
+                                 );
+                                 
+                                 const seqIndex = sequenceScans.findIndex(s => s.id === currentScan.id) + 1; // 1-based index
+                                 
+                                 // 3m increments
+                                 const monthOffset = seqIndex * 3;
+                                 generatedLabel = `${anchorLabel}+${monthOffset}m`;
                              }
                          }
                      } else {
-                         // Fallback
+                         // Fallback logic
                          const descArr = [...chronoData].reverse();
                          const descIndex = descArr.findIndex(d => d.id === currentScan.id);
                          generatedLabel = descIndex === 0 ? 'Scan 0' : `Scan -${descIndex}`;
                      }
-                     
-                     if (generatedLabel.includes("1st Annual")) hasFirstAnnual = true;
-                     usedLabels.add(generatedLabel);
 
                      // Update Model & View if not focused
                      if (input && document.activeElement !== input) {
@@ -1289,6 +1281,7 @@
                     addPredLine('Non-solid', '#2ecc71', last.nonsolid, totG);
                 }
 
+                // Force plugin registration locally for chart instance just in case
                 volumeChart = new Chart(ctx, {
                     type: 'line',
                     plugins: [ChartDataLabels],
@@ -1310,7 +1303,7 @@
                                     }
                                 },
                                 ticks: {
-                                    source: 'data',
+                                    source: 'data', 
                                     autoSkip: false,
                                     maxRotation: 0, 
                                     minRotation: 0,
@@ -1556,10 +1549,8 @@
                     logScaleCheckbox.checked = data.isLogScale || false;
                     predictionCheckbox.checked = data.isPrediction || false;
                     uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d=>d.id)) + 1 : 0;
-                    
                     // FIX: Clear table before rendering new data to avoid ID collision reusing old DOM rows
                     tableBody.innerHTML = ''; 
-                    
                     renderTable();
                 }
             }
