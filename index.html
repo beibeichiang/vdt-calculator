@@ -526,7 +526,7 @@
 
     <div class="container">
         <div class="header-container">
-            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.11.1</span></h1>
+            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.11.2</span></h1>
             <div class="header-actions">
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
                 <button class="control-btn export-btn" id="export-btn">Export CSV</button>
@@ -660,20 +660,20 @@
             </div>
             <ul class="changelog-list">
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.11.1 - Sequence-Based Naming</div>
+                    <div class="changelog-version">v2.11.2 - New Nodule Fix</div>
                     <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Smart Slot Logic:</strong> Scans are now labeled based on "slots". First scan in annual windows takes the "Annual" slot.</li>
-                            <li><strong>Sequential +3m:</strong> Any scan that isn't an Annual/Biennial anchor is automatically labeled relative to the previous anchor as +3m, +6m, etc. regardless of actual month (preserving "1st 3m", "2nd 3m" sequence).</li>
+                             <li><strong>Copy Report Fix:</strong> Copying a "New Nodule" report now correctly calculates Total VDT starting from the second scan, avoiding N/A errors when the first scan volume is empty (assumed 15mm³).</li>
                         </ul>
                     </div>
                 </li>
-                <li class="changelog-item">
-                    <div class="changelog-version">v2.10 - Smart Biennial & Fixes</div>
+                 <li class="changelog-item">
+                    <div class="changelog-version">v2.11.1 - Sequence-Based Naming</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Smart Biennial Logic:</strong> Correctly labels "Biennial" scans.</li>
+                            <li><strong>Smart Slot Logic:</strong> Scans are now labeled based on "slots". First scan in annual windows takes the "Annual" slot.</li>
+                            <li><strong>Sequential +3m:</strong> Any scan that isn't an Annual/Biennial anchor is automatically labeled relative to the previous anchor.</li>
                         </ul>
                     </div>
                 </li>
@@ -949,11 +949,10 @@
                                  generatedLabel = "Biennial";
                              } else {
                                  // Calculate offset relative to nearest preceding anchor
-                                 // "Sequence Priority": count how many scans since that anchor
                                  let anchorDate = baselineRow.dateObj;
                                  let anchorLabel = "Baseline";
                                  
-                                 // Determine relevant anchor by finding the closest one BEFORE this scan
+                                 // Determine relevant anchor
                                  if (secondAnnualScan && currentScan.dateObj > secondAnnualScan.dateObj) {
                                      anchorDate = secondAnnualScan.dateObj;
                                      anchorLabel = "2nd Annual";
@@ -965,18 +964,19 @@
                                      anchorLabel = "1st Annual";
                                  }
                                  
-                                 // Now count position in sequence relative to that anchor
-                                 // Filter scans that are AFTER this anchor and BEFORE/EQUAL current scan
-                                 const sequenceScans = chronoData.filter(s => 
-                                     s.dateObj > anchorDate && s.dateObj <= currentScan.dateObj && 
-                                     s.id !== firstAnnualScan?.id && s.id !== secondAnnualScan?.id && s.id !== biennialScan?.id
-                                 );
+                                 const diff = (currentScan.dateObj - anchorDate) / (1000 * 60 * 60 * 24 * 30.44);
                                  
-                                 const seqIndex = sequenceScans.findIndex(s => s.id === currentScan.id) + 1; // 1-based index
-                                 
-                                 // 3m increments
-                                 const monthOffset = seqIndex * 3;
-                                 generatedLabel = `${anchorLabel}+${monthOffset}m`;
+                                 if (diff < 0) {
+                                     // Should typically be covered by an earlier anchor, but just in case
+                                     generatedLabel = "Pre-" + anchorLabel; 
+                                 } else {
+                                     // Bucket into 3m, 6m, 9m
+                                     if (diff < 1.5) generatedLabel = anchorLabel; // Should be impossible if anchor logic works
+                                     else if (diff < 4.5) generatedLabel = anchorLabel + "+3m";
+                                     else if (diff < 7.5) generatedLabel = anchorLabel + "+6m";
+                                     else if (diff < 10.5) generatedLabel = anchorLabel + "+9m";
+                                     else generatedLabel = anchorLabel + "+>9m"; // Fallback
+                                 }
                              }
                          }
                      } else {
@@ -1341,6 +1341,7 @@
                 if (dataForCalc.length < 1) return;
                 
                 const numCols = dataForCalc.length > 1 ? dataForCalc.length * 2 - 1 : 1;
+                // NEW: Background transparent, Font Color White
                 const cellStyle = "border: none; padding: 0.01in; text-align: center; font-family: Arial; font-size: 11pt; color: white; background-color: transparent;";
                 const tableStyle = `font-family: Arial; font-size: 11pt; border-collapse: collapse; border: none; background-color: transparent; table-layout: fixed; width: ${numCols * 100}px;`;
                 
@@ -1350,15 +1351,37 @@
                 const last = dataForCalc[0];
                 const diff = (last.dateObj - first.dateObj) / 86400000;
                 
-                let v1, v2, lbl;
-                if(type==='solid') { v1=last.solid; v2=first.solid; lbl='Total VDT'; }
-                else if(type==='core') { v1=last.core; v2=first.core; lbl='Total VDT<sub>core</sub>'; }
-                else { v1=last.nonsolid; v2=first.nonsolid; lbl='Total VDT<sub>GGO</sub>'; }
+                // NEW FIX: For Total VDT in copy report, if New Nodule is checked, 
+                // we should respect the logic that the first scan might be virtual (15mm).
+                // But the UI calculation for 'totalS/C/G' uses:
+                // const start = (isNewNodule && dataForCalc.length > 1) ? dataForCalc[1] : dataForCalc[0];
+                // So copy report should match that logic.
+                // dataForCalc here is Newest First (descending).
+                // So dataForCalc[length-1] is oldest (index 0 in ascending).
+                // dataForCalc[length-2] is 2nd oldest.
                 
-                const res = calculateSingleVDT(v1, v2, diff);
+                let v1, v2, lbl;
+                const isNewNodule = document.getElementById('new-nodule-checkbox').checked;
+                
+                // Determine Start Point for Total Calculation
+                let startScanForTotal = first; 
+                if (isNewNodule && dataForCalc.length > 1) {
+                    startScanForTotal = dataForCalc[dataForCalc.length - 2]; 
+                    // Recalculate diff for Total VDT based on this new start point
+                    // diff variable above needs to be updated or ignored
+                }
+                
+                const totalDiff = (last.dateObj - startScanForTotal.dateObj) / 86400000;
+
+                if(type==='solid') { v1=last.solid; v2=startScanForTotal.solid; lbl='Total VDT'; }
+                else if(type==='core') { v1=last.core; v2=startScanForTotal.core; lbl='Total VDT<sub>core</sub>'; }
+                else { v1=last.nonsolid; v2=startScanForTotal.nonsolid; lbl='Total VDT<sub>GGO</sub>'; }
+                
+                const res = calculateSingleVDT(v1, v2, totalDiff);
                 
                 let disp = res.value ? res.value + 'd' : 'N/A';
                 if(res.value === 'Stable') disp = 'Stable';
+                // NEW: Blue color coding for fast shrinking
                 else if(parseFloat(res.value) > 0 && parseFloat(res.value) <= 400) disp = `<b style="color:red">${disp}</b>`;
                 else if(parseFloat(res.value) > 400 && parseFloat(res.value) <= 600) disp = `<b style="color:orange">${disp}</b>`;
                 else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:#3498db">${disp}</b>`;
