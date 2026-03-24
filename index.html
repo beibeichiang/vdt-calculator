@@ -182,6 +182,9 @@
         .export-btn { background-color: #16a085; }
         .export-btn:hover { background-color: #1abc9c; }
 
+        .import-btn { background-color: #3498db; }
+        .import-btn:hover { background-color: #2980b9; }
+
         .copy-btn { 
             background-color: #ffffff; 
             color: var(--text-main); 
@@ -276,7 +279,7 @@
         /* Column widths */
         .row-controls { width: 35px; }
         .baseline-col { width: 35px; }
-        .scan-number-col { width: 110px; font-weight: 600; color: var(--text-light); }
+        .scan-number-col { width: 130px; font-weight: 600; color: var(--text-light); }
         
         .baseline-radio {
             cursor: pointer;
@@ -526,10 +529,13 @@
 
     <div class="container">
         <div class="header-container">
-            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.11.2</span></h1>
+            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.12</span></h1>
             <div class="header-actions">
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
-                <button class="control-btn export-btn" id="export-btn">Export CSV</button>
+                <button class="control-btn export-btn" id="export-btn" title="Backup all data to CSV">Export CSV</button>
+                <button class="control-btn import-btn" id="import-btn" title="Restore data from CSV">Import CSV</button>
+                <!-- Hidden file input for Import CSV -->
+                <input type="file" id="csv-file-input" accept=".csv" class="hidden">
             </div>
         </div>
         
@@ -660,20 +666,31 @@
             </div>
             <ul class="changelog-list">
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.11.2 - New Nodule Fix</div>
+                    <div class="changelog-version">v2.12 - Data Migration (Import/Export)</div>
                     <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
-                             <li><strong>Copy Report Fix:</strong> Copying a "New Nodule" report now correctly calculates Total VDT starting from the second scan, avoiding N/A errors when the first scan volume is empty (assumed 15mm³).</li>
+                            <li><strong>Export CSV:</strong> Now generates a robust backup containing ALL patients, notes, settings, and scan histories.</li>
+                            <li><strong>Import CSV:</strong> New feature to seamlessly restore previously exported data. Perfect for migrating from Edge to Chrome.</li>
                         </ul>
                     </div>
                 </li>
                  <li class="changelog-item">
-                    <div class="changelog-version">v2.11.1 - Sequence-Based Naming</div>
+                    <div class="changelog-version">v2.11.2 - Naming & Slot Logic Updates</div>
                     <div class="changelog-desc">
                         <ul>
-                            <li><strong>Smart Slot Logic:</strong> Scans are now labeled based on "slots". First scan in annual windows takes the "Annual" slot.</li>
-                            <li><strong>Sequential +3m:</strong> Any scan that isn't an Annual/Biennial anchor is automatically labeled relative to the previous anchor.</li>
+                            <li><strong>Smart Slot Logic:</strong> First scan in annual windows takes the "Annual" slot, and subsequent ones are marked relative (e.g. +3m) preventing "1st 3m" jumps.</li>
+                            <li><strong>Smooth Typing:</strong> Keyboard Enter now intelligently focuses the next input without breaking flow.</li>
+                            <li><strong>Copy Report Fix:</strong> Fixed N/A Total VDT error when using "New Nodule".</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v2.10 - Smart Biennial & Chart fixes</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Smart Biennial Logic:</strong> Correctly labels "Biennial" scans.</li>
+                            <li><strong>Chart Labels:</strong> Direct on-chart data labels display Volume & VDT.</li>
                         </ul>
                     </div>
                 </li>
@@ -689,6 +706,8 @@
             const clearBtn = document.getElementById('clear-btn');
             const saveBtn = document.getElementById('save-btn');
             const exportBtn = document.getElementById('export-btn');
+            const importBtn = document.getElementById('import-btn');
+            const csvFileInput = document.getElementById('csv-file-input');
             const exportNewBtn = document.getElementById('export-new-btn');
             const patientIdInput = document.getElementById('patient-id');
             const totalResultsContainer = document.getElementById('total-results-container');
@@ -859,7 +878,6 @@
                 const labelInp = tr.querySelector('.scan-label-input');
                 if (document.activeElement !== labelInp) labelInp.value = dataRow.customLabel || '';
 
-                // FIX: Update volume inputs too (handles loadData correctly)
                 const safeVal = (v) => (v === undefined || v === null) ? '' : v;
                 const solidInp = tr.querySelector('.solid-input');
                 if (document.activeElement !== solidInp) solidInp.value = safeVal(dataRow.solid);
@@ -967,11 +985,10 @@
                                  const diff = (currentScan.dateObj - anchorDate) / (1000 * 60 * 60 * 24 * 30.44);
                                  
                                  if (diff < 0) {
-                                     // Should typically be covered by an earlier anchor, but just in case
                                      generatedLabel = "Pre-" + anchorLabel; 
                                  } else {
                                      // Bucket into 3m, 6m, 9m
-                                     if (diff < 1.5) generatedLabel = anchorLabel; // Should be impossible if anchor logic works
+                                     if (diff < 1.5) generatedLabel = anchorLabel; 
                                      else if (diff < 4.5) generatedLabel = anchorLabel + "+3m";
                                      else if (diff < 7.5) generatedLabel = anchorLabel + "+6m";
                                      else if (diff < 10.5) generatedLabel = anchorLabel + "+9m";
@@ -1024,15 +1041,6 @@
                 predictionCheckbox.checked = false;
                 uniqueRowId = 0;
                 for(let i=0; i<4; i++) addScan();
-            }
-
-            // --- Data & Events ---
-            function bindEventListeners() {
-                // Logic moved to createRowElement to bind immediately on creation
-            }
-
-            function updateData(event, key, forceRender = true) {
-                // Legacy function, logic moved to listeners inside createRowElement for better control
             }
 
             function format_date(event) {
@@ -1281,7 +1289,6 @@
                     addPredLine('Non-solid', '#2ecc71', last.nonsolid, totG);
                 }
 
-                // Force plugin registration locally for chart instance just in case
                 volumeChart = new Chart(ctx, {
                     type: 'line',
                     plugins: [ChartDataLabels],
@@ -1303,7 +1310,7 @@
                                     }
                                 },
                                 ticks: {
-                                    source: 'data', 
+                                    source: 'data',
                                     autoSkip: false,
                                     maxRotation: 0, 
                                     minRotation: 0,
@@ -1341,7 +1348,6 @@
                 if (dataForCalc.length < 1) return;
                 
                 const numCols = dataForCalc.length > 1 ? dataForCalc.length * 2 - 1 : 1;
-                // NEW: Background transparent, Font Color White
                 const cellStyle = "border: none; padding: 0.01in; text-align: center; font-family: Arial; font-size: 11pt; color: white; background-color: transparent;";
                 const tableStyle = `font-family: Arial; font-size: 11pt; border-collapse: collapse; border: none; background-color: transparent; table-layout: fixed; width: ${numCols * 100}px;`;
                 
@@ -1351,24 +1357,12 @@
                 const last = dataForCalc[0];
                 const diff = (last.dateObj - first.dateObj) / 86400000;
                 
-                // NEW FIX: For Total VDT in copy report, if New Nodule is checked, 
-                // we should respect the logic that the first scan might be virtual (15mm).
-                // But the UI calculation for 'totalS/C/G' uses:
-                // const start = (isNewNodule && dataForCalc.length > 1) ? dataForCalc[1] : dataForCalc[0];
-                // So copy report should match that logic.
-                // dataForCalc here is Newest First (descending).
-                // So dataForCalc[length-1] is oldest (index 0 in ascending).
-                // dataForCalc[length-2] is 2nd oldest.
-                
                 let v1, v2, lbl;
                 const isNewNodule = document.getElementById('new-nodule-checkbox').checked;
                 
-                // Determine Start Point for Total Calculation
                 let startScanForTotal = first; 
                 if (isNewNodule && dataForCalc.length > 1) {
                     startScanForTotal = dataForCalc[dataForCalc.length - 2]; 
-                    // Recalculate diff for Total VDT based on this new start point
-                    // diff variable above needs to be updated or ignored
                 }
                 
                 const totalDiff = (last.dateObj - startScanForTotal.dateObj) / 86400000;
@@ -1381,7 +1375,6 @@
                 
                 let disp = res.value ? res.value + 'd' : 'N/A';
                 if(res.value === 'Stable') disp = 'Stable';
-                // NEW: Blue color coding for fast shrinking
                 else if(parseFloat(res.value) > 0 && parseFloat(res.value) <= 400) disp = `<b style="color:red">${disp}</b>`;
                 else if(parseFloat(res.value) > 400 && parseFloat(res.value) <= 600) disp = `<b style="color:orange">${disp}</b>`;
                 else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:#3498db">${disp}</b>`;
@@ -1462,7 +1455,170 @@
                 }, 1500);
             };
 
-            // ... (Patient Manager Functions) ...
+            // --- Export / Import CSV Data Migration ---
+
+            function exportAllToCSV() {
+                let csv = "PatientID,Date,Solid,Core,NonSolid,Baseline,CustomLabel,Notes,IsStarred,NewNodule\n";
+                let hasData = false;
+
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key.startsWith('vdt-calc-')) {
+                        const pid = key.substring(9);
+                        try {
+                            const data = JSON.parse(localStorage.getItem(key));
+                            if (data && data.tableData) {
+                                data.tableData.forEach(row => {
+                                    if (row.date || row.solid || row.core || row.nonsolid) {
+                                        hasData = true;
+                                        // Escaping quotes for CSV
+                                        const safeNote = (data.notes || '').replace(/"/g, '""');
+                                        csv += `"${pid}","${row.date || ''}","${row.solid || ''}","${row.core || ''}","${row.nonsolid || ''}","${row.isBaseline || false}","${row.customLabel || ''}","${safeNote}","${data.isStarred || false}","${data.isNewNodule || false}"\n`;
+                                    }
+                                });
+                            }
+                        } catch(e) {}
+                    }
+                }
+                
+                if (!hasData) {
+                    alert("没有找到需要导出的数据。 (No data found to export.)");
+                    return;
+                }
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                const dateString = new Date().toISOString().split('T')[0];
+                link.setAttribute("download", `VDT_All_Patients_Backup_${dateString}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            function handleImportCSV(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    // Simple CSV parser handling quotes
+                    const rows = [];
+                    let row = [];
+                    let inQuotes = false;
+                    let val = '';
+                    for (let i = 0; i < text.length; i++) {
+                        let char = text[i];
+                        if (char === '"') {
+                            inQuotes = !inQuotes;
+                        } else if (char === ',' && !inQuotes) {
+                            row.push(val);
+                            val = '';
+                        } else if (char === '\n' && !inQuotes) {
+                            row.push(val);
+                            rows.push(row);
+                            row = [];
+                            val = '';
+                        } else {
+                            if (char !== '\r') val += char;
+                        }
+                    }
+                    if (val || row.length > 0) {
+                        row.push(val);
+                        rows.push(row);
+                    }
+
+                    if (rows.length < 2) {
+                        alert("无效的CSV文件或文件为空。 (Invalid CSV or empty file.)");
+                        return;
+                    }
+
+                    const headers = rows[0].map(h => h.toLowerCase().trim());
+                    const pidIdx = headers.findIndex(h => h.includes('patient'));
+                    const dateIdx = headers.findIndex(h => h === 'date' || h.includes('scan date'));
+                    const solidIdx = headers.findIndex(h => h === 'solid' || h.includes('solid'));
+                    const coreIdx = headers.findIndex(h => h === 'core');
+                    const ggoIdx = headers.findIndex(h => h === 'nonsolid' || h === 'non-solid' || h === 'ggo');
+                    const baselineIdx = headers.findIndex(h => h.includes('baseline'));
+                    const labelIdx = headers.findIndex(h => h.includes('label') || h.includes('scan #') || h === 'scan');
+                    const notesIdx = headers.findIndex(h => h.includes('note'));
+                    const starIdx = headers.findIndex(h => h.includes('star'));
+                    const newNodIdx = headers.findIndex(h => h.includes('newnodule') || h.includes('new nodule'));
+
+                    if (dateIdx === -1) {
+                        alert("CSV必须包含 'Date' 列。 (CSV must contain a 'Date' column.)");
+                        return;
+                    }
+
+                    const importedData = {};
+
+                    for (let i = 1; i < rows.length; i++) {
+                        const cols = rows[i];
+                        if (cols.length < 2 || !cols[dateIdx]) continue;
+
+                        const pid = (pidIdx !== -1 && cols[pidIdx]) ? cols[pidIdx] : (patientIdInput.value.trim() || 'Imported_Patient');
+                        if (!importedData[pid]) {
+                            importedData[pid] = {
+                                tableData: [],
+                                notes: notesIdx !== -1 ? cols[notesIdx] : '',
+                                isStarred: starIdx !== -1 ? cols[starIdx] === 'true' : false,
+                                isNewNodule: newNodIdx !== -1 ? cols[newNodIdx] === 'true' : false,
+                            };
+                        }
+
+                        importedData[pid].tableData.push({
+                            id: Date.now() + Math.random(), 
+                            date: cols[dateIdx],
+                            solid: solidIdx !== -1 ? cols[solidIdx] : '',
+                            core: coreIdx !== -1 ? cols[coreIdx] : '',
+                            nonsolid: ggoIdx !== -1 ? cols[ggoIdx] : '',
+                            isBaseline: baselineIdx !== -1 ? (cols[baselineIdx].toLowerCase() === 'true' || cols[baselineIdx] === '1') : false,
+                            customLabel: labelIdx !== -1 ? cols[labelIdx] : ''
+                        });
+                    }
+
+                    let importCount = 0;
+                    Object.keys(importedData).forEach(pid => {
+                        let currentId = 0;
+                        const newTableData = importedData[pid].tableData.map(d => ({...d, id: currentId++}));
+                        
+                        let existing = {};
+                        const str = localStorage.getItem(`vdt-calc-${pid}`);
+                        if (str) existing = JSON.parse(str);
+
+                        const dataToSave = {
+                            ...existing,
+                            tableData: newTableData,
+                            notes: importedData[pid].notes || existing.notes || '',
+                            isStarred: importedData[pid].isStarred !== undefined ? importedData[pid].isStarred : (existing.isStarred || false),
+                            isNewNodule: importedData[pid].isNewNodule !== undefined ? importedData[pid].isNewNodule : (existing.isNewNodule || false),
+                            isLogScale: existing.isLogScale || false,
+                            isPrediction: existing.isPrediction || false,
+                        };
+                        localStorage.setItem(`vdt-calc-${pid}`, JSON.stringify(dataToSave));
+                        importCount++;
+                    });
+
+                    alert(`成功导入/更新了 ${importCount} 个病人的数据。 (Successfully imported ${importCount} patients.)`);
+                    
+                    const currentPid = patientIdInput.value.trim();
+                    if (currentPid && importedData[currentPid]) {
+                        loadData(currentPid);
+                    } else if (importCount === 1) {
+                        loadData(Object.keys(importedData)[0]);
+                    } else {
+                        openPatientManager();
+                    }
+
+                    event.target.value = ''; // Reset input
+                };
+                reader.readAsText(file);
+            }
+
+            // --- Patient Manager Functions ---
             function openPatientManager() {
                  const searchTerm = patientSearchInput.value.toLowerCase();
                 const showStarredOnly = showStarredOnlyCheckbox.checked;
@@ -1572,19 +1728,22 @@
                     logScaleCheckbox.checked = data.isLogScale || false;
                     predictionCheckbox.checked = data.isPrediction || false;
                     uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d=>d.id)) + 1 : 0;
-                    // FIX: Clear table before rendering new data to avoid ID collision reusing old DOM rows
                     tableBody.innerHTML = ''; 
                     renderTable();
                 }
             }
             function saveAndNew() { saveData(); clearAll(); }
-            function exportToCSV() { /* ... */ }
 
             addScanBtn.addEventListener('click', addScan);
             clearBtn.addEventListener('click', clearAll);
             saveBtn.addEventListener('click', saveData);
-            exportBtn.addEventListener('click', exportToCSV);
+            exportBtn.addEventListener('click', exportAllToCSV); // Attached new export
             exportNewBtn.addEventListener('click', saveAndNew);
+            
+            // Import logic bindings
+            importBtn.addEventListener('click', () => csvFileInput.click());
+            csvFileInput.addEventListener('change', handleImportCSV);
+            
             patientIdInput.addEventListener('blur', () => loadData());
             patientIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadData(); });
             sortOrderSelect.addEventListener('change', renderTable);
