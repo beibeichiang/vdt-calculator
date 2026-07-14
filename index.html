@@ -3,49 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic VDT Calculator - Pro</title>
+    <title>Dynamic VDT Calculator</title>
+    <meta name="theme-color" content="#0B3852">
+    <meta name="description" content="Volume doubling time calculator for longitudinal pulmonary nodule measurements.">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <!-- Chart.js & Plugins -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="./vdt-core.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --primary-color: #007acc;
-            --primary-hover: #005fa3;
+            --primary-color: #087E8B;
+            --primary-hover: #066772;
             --secondary-color: #6c757d;
             --accent-green: #2e8b57;
             --accent-red: #e74c3c;
             --accent-blue: #3498db; /* For fast shrinking */
-            --bg-color: #f4f6f8;
+            --bg-color: #edf4f6;
             --card-bg: #ffffff;
-            --text-main: #2c3e50;
-            --text-light: #7f8c8d;
-            --border-color: #e1e4e8;
+            --text-main: #102a3a;
+            --text-light: #5f7683;
+            --border-color: #d7e3e8;
             --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
             --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
             --radius-md: 8px;
             --radius-sm: 4px;
         }
 
+        *, *::before, *::after { box-sizing: border-box; }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: var(--bg-color);
+            background:
+                radial-gradient(circle at 0% 0%, rgba(25, 152, 162, 0.14), transparent 34rem),
+                linear-gradient(145deg, #f7fafb 0%, var(--bg-color) 100%);
             color: var(--text-main);
             margin: 0;
-            padding: 20px;
+            padding: 28px;
             line-height: 1.5;
         }
 
         .container {
             width: 100%;
-            max-width: 98%;
+            max-width: 1480px;
             margin: 0 auto;
             background-color: var(--card-bg);
-            padding: 25px;
-            border-radius: 12px;
+            padding: 28px;
+            border-radius: 22px;
             box-shadow: var(--shadow-md);
             position: relative;
         }
@@ -56,7 +66,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
-            padding-bottom: 15px;
+            padding-bottom: 20px;
             border-bottom: 1px solid var(--border-color);
         }
 
@@ -65,6 +75,51 @@
             font-weight: 600;
             margin: 0;
             color: var(--text-main);
+        }
+
+        .brand-lockup {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .app-mark {
+            width: 52px;
+            height: 52px;
+            border-radius: 15px;
+            box-shadow: 0 10px 24px rgba(7, 56, 75, 0.2);
+            flex: none;
+        }
+
+        .eyebrow {
+            margin: 3px 0 0;
+            color: var(--text-light);
+            font-size: 0.78rem;
+            letter-spacing: 0.04em;
+        }
+
+        .local-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: #17695f;
+            background: #e7f7f2;
+            border: 1px solid #c9e9df;
+            border-radius: 999px;
+            padding: 7px 11px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .local-badge::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #20a486;
+            box-shadow: 0 0 0 3px rgba(32, 164, 134, 0.12);
         }
 
         .version-tag {
@@ -87,14 +142,20 @@
             gap: 10px;
         }
 
+        .main-actions {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
+        }
+
         /* --- Patient ID Input --- */
         .patient-id-container {
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             gap: 15px;
             margin-bottom: 30px;
-            background: #f8fafc;
+            background: linear-gradient(90deg, #f4faf9, #f8fbfc);
             padding: 15px;
             border-radius: var(--radius-md);
             border: 1px dashed var(--border-color);
@@ -118,6 +179,12 @@
         .patient-id-container input:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.1);
+        }
+
+        .patient-id-hint {
+            margin-left: auto;
+            color: var(--text-light);
+            font-size: 0.78rem;
         }
 
         /* --- Controls & Buttons --- */
@@ -266,6 +333,36 @@
             font-family: inherit;
             font-size: 0.9rem;
         }
+
+        .data-table input.invalid-input {
+            border-color: #d64545;
+            background: #fff5f5;
+            box-shadow: 0 0 0 2px rgba(214, 69, 69, 0.08);
+        }
+
+        .app-footer {
+            max-width: 1480px;
+            margin: 14px auto 0;
+            padding: 0 20px;
+            color: var(--text-light);
+            text-align: center;
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 820px) {
+            body { padding: 12px; }
+            .container { padding: 18px; border-radius: 16px; }
+            .header-container { flex-direction: column; align-items: stretch; gap: 16px; }
+            .header-actions { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
+            .local-badge { display: none; }
+            .patient-id-container { align-items: flex-start; flex-wrap: wrap; }
+            .patient-id-container label { width: 100%; }
+            .patient-id-container input { width: 100%; flex: 1 0 100%; }
+            .patient-id-hint { width: 100%; margin-left: 0; }
+            .left-controls { width: 100%; }
+            .main-actions { width: 100%; margin-left: 0; flex-wrap: wrap; }
+            .control-btn { min-height: 40px; }
+        }
         .data-table input:hover {
             background: #fff;
             border-color: #e1e4e8;
@@ -350,6 +447,13 @@
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             height: 450px; /* Slightly reduced height */
+        }
+
+        .chart-unavailable {
+            margin: 0;
+            padding: 28px;
+            color: var(--text-light);
+            text-align: center;
         }
 
         /* --- Modals --- */
@@ -529,8 +633,15 @@
 
     <div class="container">
         <div class="header-container">
-            <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v2.12</span></h1>
+            <div class="brand-lockup">
+                <img class="app-mark" src="./icons/icon.svg" alt="">
+                <div>
+                    <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v3.0</span></h1>
+                    <p class="eyebrow">Longitudinal pulmonary nodule volume analysis</p>
+                </div>
+            </div>
             <div class="header-actions">
+                <span class="local-badge">Saved in this browser</span>
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
                 <button class="control-btn export-btn" id="export-btn" title="Backup all data to CSV">Export CSV</button>
                 <button class="control-btn import-btn" id="import-btn" title="Restore data from CSV">Import CSV</button>
@@ -541,7 +652,8 @@
         
         <div class="patient-id-container">
             <label for="patient-id">Patient ID</label>
-            <input type="text" id="patient-id" placeholder="Enter ID to Auto-Save/Load">
+            <input type="text" id="patient-id" placeholder="Enter ID to save or load" autocomplete="off" spellcheck="false">
+            <span class="patient-id-hint">Data remains in local browser storage; use CSV export for backups.</span>
         </div>
 
         <div class="table-controls">
@@ -612,9 +724,12 @@
         </div>
 
         <div class="chart-container">
+            <p id="chart-unavailable" class="chart-unavailable hidden">Chart unavailable. Calculations and saved data remain available.</p>
             <canvas id="volumeChart"></canvas>
         </div>
     </div>
+
+    <footer class="app-footer">Decision-support calculation only. Verify source measurements and results before clinical use.</footer>
     
     <!-- Patient Manager Modal -->
     <div id="patient-manager-modal" class="modal-overlay hidden">
@@ -665,9 +780,19 @@
                 <button id="changelog-close-btn" class="modal-close-btn" style="font-size: 24px; background:none; border:none; cursor:pointer;">&times;</button>
             </div>
             <ul class="changelog-list">
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.0 - Reliability &amp; App Experience</div>
+                    <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>PWA:</strong> New install icon and reliable offline app shell.</li>
+                            <li><strong>Data quality:</strong> Strict date validation and safer CSV round-tripping.</li>
+                            <li><strong>Privacy &amp; safety:</strong> User-entered labels, notes, and IDs are rendered safely.</li>
+                        </ul>
+                    </div>
+                </li>
                  <li class="changelog-item">
                     <div class="changelog-version">v2.12 - Data Migration (Import/Export)</div>
-                    <div class="changelog-date">Current Version</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Export CSV:</strong> Now generates a robust backup containing ALL patients, notes, settings, and scan histories.</li>
@@ -717,6 +842,7 @@
             const logScaleCheckbox = document.getElementById('log-scale-checkbox');
             const predictionCheckbox = document.getElementById('prediction-checkbox');
             const chartCanvas = document.getElementById('volumeChart');
+            const chartUnavailable = document.getElementById('chart-unavailable');
             const container = document.querySelector('.container');
             
             // Modal elements
@@ -750,7 +876,7 @@
 
             function showTooltip(target, text) {
                 if (!tooltipDiv) createTooltip();
-                tooltipDiv.innerHTML = text;
+                tooltipDiv.textContent = text;
                 tooltipDiv.classList.add('visible');
                 
                 const rect = target.getBoundingClientRect();
@@ -771,8 +897,8 @@
             function createRowElement(dataRow) {
                 const tr = document.createElement('tr');
                 tr.dataset.id = dataRow.id;
-                // FIX: Ensure values are strings to avoid "undefined" in template
                 const safeVal = (v) => (v === undefined || v === null) ? '' : v;
+                const safeAttr = (v) => VDTCore.escapeHtml(safeVal(v));
                 
                 tr.innerHTML = `
                     <td class="row-controls">
@@ -782,12 +908,12 @@
                         <input type="radio" name="baseline-group" class="baseline-radio" ${dataRow.isBaseline ? 'checked' : ''}>
                     </td>
                     <td class="scan-number scan-number-col">
-                         <input type="text" class="scan-label-input" value="${safeVal(dataRow.customLabel)}" placeholder="-">
+                         <input type="text" class="scan-label-input" value="${safeAttr(dataRow.customLabel)}" placeholder="-">
                     </td>
-                    <td><input type="text" class="date-input" value="${safeVal(dataRow.date)}" placeholder="YYYY-MM-DD"></td>
-                    <td><input type="number" class="solid-input" value="${safeVal(dataRow.solid)}" min="0" step="0.1"></td>
-                    <td><input type="number" class="core-input" value="${safeVal(dataRow.core)}" min="0" step="0.1"></td>
-                    <td><input type="number" class="nonsolid-input" value="${safeVal(dataRow.nonsolid)}" min="0" step="0.1"></td>
+                    <td><input type="text" class="date-input" value="${safeAttr(dataRow.date)}" placeholder="YYYY-MM-DD" inputmode="numeric"></td>
+                    <td><input type="number" class="solid-input" value="${safeAttr(dataRow.solid)}" min="0" step="0.1"></td>
+                    <td><input type="number" class="core-input" value="${safeAttr(dataRow.core)}" min="0" step="0.1"></td>
+                    <td><input type="number" class="nonsolid-input" value="${safeAttr(dataRow.nonsolid)}" min="0" step="0.1"></td>
                     <td class="result-cell vdt-solid-result">-</td>
                     <td class="result-cell vdt-core-result">-</td>
                     <td class="result-cell vdt-ggo-result">-</td>
@@ -795,11 +921,19 @@
 
                 // Attach Listeners immediately
                 const dateInput = tr.querySelector('.date-input');
+                const updateDateValidity = () => {
+                    const isInvalid = Boolean(dateInput.value && !parseDateString(dateInput.value));
+                    dateInput.classList.toggle('invalid-input', isInvalid);
+                    dateInput.setAttribute('aria-invalid', String(isInvalid));
+                    dateInput.title = isInvalid ? 'Enter a valid date in YYYY-MM-DD format.' : '';
+                };
+                updateDateValidity();
                 
                 // Change = Blur. Physical sort happens here.
                 dateInput.addEventListener('change', (e) => {
                     format_date(e);
                     dataRow.date = e.target.value;
+                    updateDateValidity();
                     renderTable(); // Resort and refresh
                 });
                 
@@ -809,6 +943,7 @@
                         e.preventDefault();
                         format_date(e);
                         dataRow.date = e.target.value;
+                        updateDateValidity();
                         
                         // Calculate and update labels in background without destroying DOM
                         updateScanLabels();
@@ -874,6 +1009,9 @@
             function updateRowVisuals(tr, dataRow) {
                 const dateInp = tr.querySelector('.date-input');
                 if (document.activeElement !== dateInp) dateInp.value = dataRow.date || '';
+                const invalidDate = Boolean(dateInp.value && !parseDateString(dateInp.value));
+                dateInp.classList.toggle('invalid-input', invalidDate);
+                dateInp.setAttribute('aria-invalid', String(invalidDate));
 
                 const labelInp = tr.querySelector('.scan-label-input');
                 if (document.activeElement !== labelInp) labelInp.value = dataRow.customLabel || '';
@@ -1051,35 +1189,14 @@
             }
             
             function parseDateString(dateStr) {
-                if (!dateStr) return null;
-                const cleanStr = dateStr.replace(/-/g, '');
-                if (cleanStr.length !== 8 || isNaN(cleanStr)) return null;
-                return new Date(parseInt(cleanStr.substring(0, 4)), parseInt(cleanStr.substring(4, 6)) - 1, parseInt(cleanStr.substring(6, 8)));
+                return VDTCore.parseDateString(dateStr);
             }
 
             function handlePaste(event) { }
 
             // --- Calculation & Rendering ---
             function calculateSingleVDT(vol1, vol2, timeDiff, isNewNoduleCalc = false) {
-                const base = { html: '-', value: null, timeDiff: null, volumeChange: null };
-                if (!timeDiff || timeDiff <= 0 || isNaN(vol1) || isNaN(vol2) || vol1 <= 0 || vol2 <= 0) return base;
-
-                if (isNewNoduleCalc && vol1 < vol2) {
-                    return { html: 'N/A (<15mm³)', value: null, timeDiff: null, volumeChange: null };
-                }
-                
-                const volumeChange = ((vol1 - vol2) / vol2) * 100;
-                if (vol1 === vol2) return { html: '<span class="vdt-stable-or-slow">Stable</span>', value: 'Stable', timeDiff: timeDiff.toFixed(0), volumeChange: '0.0' };
-                
-                const vdt = (Math.log(2) * timeDiff) / (Math.log(vol1) - Math.log(vol2));
-                const disp = vdt.toFixed(0);
-                let cls = 'vdt-stable-or-slow';
-                
-                if (vdt > 0 && vdt <= 400) cls = 'vdt-positive';
-                else if (vdt > 400 && vdt <= 600) cls = 'vdt-indeterminate';
-                else if (vdt < 0 && vdt >= -400) cls = 'vdt-shrinking';
-                
-                return { html: `<strong><span class="${cls}">${disp}d</span></strong>`, value: disp, timeDiff: timeDiff.toFixed(0), volumeChange: volumeChange.toFixed(1) };
+                return VDTCore.calculateSingleVDT(vol1, vol2, timeDiff, isNewNoduleCalc);
             }
 
             function calculateAll() {
@@ -1143,6 +1260,12 @@
                     totalC = calculateSingleVDT(end.core, start.core, tDiff);
                     totalG = calculateSingleVDT(end.nonsolid, start.nonsolid, tDiff);
 
+                    if (isNewNodule && dataForCalc.length === 2) {
+                        totalS = firstSolid;
+                        totalC = firstCore;
+                        totalG = firstGgo;
+                    }
+
                     const boxHtml = (label, res, type) => `
                         <div class="total-result-box">
                             <div class="label">${label}</div>
@@ -1192,6 +1315,13 @@
 
             function renderChart(data, totS, totC, totG) {
                 if (volumeChart) volumeChart.destroy();
+                if (typeof Chart === 'undefined') {
+                    chartCanvas.classList.add('hidden');
+                    chartUnavailable.classList.remove('hidden');
+                    return;
+                }
+                chartCanvas.classList.remove('hidden');
+                chartUnavailable.classList.add('hidden');
                 const ctx = chartCanvas.getContext('2d');
                 
                 let chartData = data.map(d => ({...d}));
@@ -1289,9 +1419,10 @@
                     addPredLine('Non-solid', '#2ecc71', last.nonsolid, totG);
                 }
 
-                volumeChart = new Chart(ctx, {
+                try {
+                    volumeChart = new Chart(ctx, {
                     type: 'line',
-                    plugins: [ChartDataLabels],
+                    plugins: typeof ChartDataLabels === 'undefined' ? [] : [ChartDataLabels],
                     data: { datasets },
                     options: {
                         responsive: true,
@@ -1337,7 +1468,13 @@
                             legend: { position: 'bottom' }
                         }
                     }
-                });
+                    });
+                } catch (error) {
+                    volumeChart = null;
+                    chartCanvas.classList.add('hidden');
+                    chartUnavailable.classList.remove('hidden');
+                    console.warn('Chart could not be rendered.', error);
+                }
             }
             
             window.copyReport = function(type, btn) {
@@ -1360,18 +1497,23 @@
                 let v1, v2, lbl;
                 const isNewNodule = document.getElementById('new-nodule-checkbox').checked;
                 
-                let startScanForTotal = first; 
+                let startScanForTotal = first;
+                let useNewNoduleMaximum = false;
                 if (isNewNodule && dataForCalc.length > 1) {
-                    startScanForTotal = dataForCalc[dataForCalc.length - 2]; 
+                    if (dataForCalc.length === 2) {
+                        useNewNoduleMaximum = true;
+                    } else {
+                        startScanForTotal = dataForCalc[dataForCalc.length - 2];
+                    }
                 }
                 
                 const totalDiff = (last.dateObj - startScanForTotal.dateObj) / 86400000;
 
-                if(type==='solid') { v1=last.solid; v2=startScanForTotal.solid; lbl='Total VDT'; }
-                else if(type==='core') { v1=last.core; v2=startScanForTotal.core; lbl='Total VDT<sub>core</sub>'; }
-                else { v1=last.nonsolid; v2=startScanForTotal.nonsolid; lbl='Total VDT<sub>GGO</sub>'; }
+                if(type==='solid') { v1=last.solid; v2=useNewNoduleMaximum ? 15 : startScanForTotal.solid; lbl='Total VDT'; }
+                else if(type==='core') { v1=last.core; v2=useNewNoduleMaximum ? 15 : startScanForTotal.core; lbl='Total VDT<sub>core</sub>'; }
+                else { v1=last.nonsolid; v2=useNewNoduleMaximum ? 15 : startScanForTotal.nonsolid; lbl='Total VDT<sub>GGO</sub>'; }
                 
-                const res = calculateSingleVDT(v1, v2, totalDiff);
+                const res = calculateSingleVDT(v1, v2, totalDiff, useNewNoduleMaximum);
                 
                 let disp = res.value ? res.value + 'd' : 'N/A';
                 if(res.value === 'Stable') disp = 'Stable';
@@ -1386,7 +1528,7 @@
                 html += '<tr>';
                 dataForCalc.forEach((s, i) => {
                     const num = s.customLabel || `Scan ${dataForCalc.length - 1 - i}`;
-                    html += `<td style="${cellStyle}">${num}</td>`;
+                    html += `<td style="${cellStyle}">${VDTCore.escapeHtml(num)}</td>`;
                     if(i < dataForCalc.length -1) html += `<td style="${cellStyle}"></td>`;
                 });
                 html += '</tr>';
@@ -1419,7 +1561,7 @@
                          const r = calculateSingleVDT(vc, vp, d, isMax);
                          
                          let dStr = r.value ? r.value + 'd' : 'N/A';
-                         if(r.html && r.html.includes('<15mm')) dStr = 'N/A'; 
+                         if(r.html && r.html.includes('15mm')) dStr = 'N/A';
                          else if(r.value === 'Stable') dStr = 'Stable';
                          else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:red">${dStr}</b>`;
                          else if(parseFloat(r.value) > 400 && parseFloat(r.value) <= 600) dStr = `<b style="color:orange">${dStr}</b>`;
@@ -1458,7 +1600,7 @@
             // --- Export / Import CSV Data Migration ---
 
             function exportAllToCSV() {
-                let csv = "PatientID,Date,Solid,Core,NonSolid,Baseline,CustomLabel,Notes,IsStarred,NewNodule\n";
+                const rows = [["PatientID", "Date", "Solid", "Core", "NonSolid", "Baseline", "CustomLabel", "Notes", "IsStarred", "NewNodule"]];
                 let hasData = false;
 
                 for (let i = 0; i < localStorage.length; i++) {
@@ -1471,9 +1613,18 @@
                                 data.tableData.forEach(row => {
                                     if (row.date || row.solid || row.core || row.nonsolid) {
                                         hasData = true;
-                                        // Escaping quotes for CSV
-                                        const safeNote = (data.notes || '').replace(/"/g, '""');
-                                        csv += `"${pid}","${row.date || ''}","${row.solid || ''}","${row.core || ''}","${row.nonsolid || ''}","${row.isBaseline || false}","${row.customLabel || ''}","${safeNote}","${data.isStarred || false}","${data.isNewNodule || false}"\n`;
+                                        rows.push([
+                                            pid,
+                                            row.date || '',
+                                            row.solid || '',
+                                            row.core || '',
+                                            row.nonsolid || '',
+                                            row.isBaseline || false,
+                                            row.customLabel || '',
+                                            data.notes || '',
+                                            data.isStarred || false,
+                                            data.isNewNodule || false
+                                        ]);
                                     }
                                 });
                             }
@@ -1486,6 +1637,7 @@
                     return;
                 }
 
+                const csv = '\uFEFF' + rows.map(VDTCore.csvStringifyRow).join('\r\n');
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement("a");
                 const url = URL.createObjectURL(blob);
@@ -1496,6 +1648,7 @@
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
+                URL.revokeObjectURL(url);
             }
 
             function handleImportCSV(event) {
@@ -1505,30 +1658,13 @@
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const text = e.target.result;
-                    // Simple CSV parser handling quotes
-                    const rows = [];
-                    let row = [];
-                    let inQuotes = false;
-                    let val = '';
-                    for (let i = 0; i < text.length; i++) {
-                        let char = text[i];
-                        if (char === '"') {
-                            inQuotes = !inQuotes;
-                        } else if (char === ',' && !inQuotes) {
-                            row.push(val);
-                            val = '';
-                        } else if (char === '\n' && !inQuotes) {
-                            row.push(val);
-                            rows.push(row);
-                            row = [];
-                            val = '';
-                        } else {
-                            if (char !== '\r') val += char;
-                        }
-                    }
-                    if (val || row.length > 0) {
-                        row.push(val);
-                        rows.push(row);
+                    let rows;
+                    try {
+                        rows = VDTCore.parseCSV(text.replace(/^\uFEFF/, ''));
+                    } catch (error) {
+                        alert(`无法读取CSV文件：${error.message} (Unable to read CSV.)`);
+                        event.target.value = '';
+                        return;
                     }
 
                     if (rows.length < 2) {
@@ -1553,7 +1689,7 @@
                         return;
                     }
 
-                    const importedData = {};
+                    const importedData = Object.create(null);
 
                     for (let i = 1; i < rows.length; i++) {
                         const cols = rows[i];
@@ -1654,18 +1790,52 @@
                 filteredPatients.forEach(patient => {
                     const tr = document.createElement('tr');
                     const starChar = patient.isStarred ? '★' : '☆';
-                    tr.innerHTML = `
-                        <td><button class="star-btn ${patient.isStarred ? 'starred' : ''}" onclick="toggleStar('${patient.id}')">${starChar}</button></td>
-                        <td>${patient.id}</td>
-                        <td>${patient.totals.solidVdtHtml}</td>
-                        <td>${patient.totals.coreVdtHtml}</td>
-                        <td>${patient.totals.ggoVdtHtml}</td>
-                        <td><textarea class="notes-area" onblur="saveNote('${patient.id}', this.value)">${patient.notes || ''}</textarea></td>
-                        <td class="patient-actions">
-                            <button class="control-btn add-row-btn" onclick="loadFromManager('${patient.id}')">Load</button>
-                            <button class="control-btn remove-row-btn" onclick="deletePatient('${patient.id}')">Del</button>
-                        </td>
-                    `;
+
+                    const starCell = document.createElement('td');
+                    const starButton = document.createElement('button');
+                    starButton.className = `star-btn ${patient.isStarred ? 'starred' : ''}`;
+                    starButton.textContent = starChar;
+                    starButton.title = patient.isStarred ? 'Remove star' : 'Add star';
+                    starButton.addEventListener('click', () => toggleStar(patient.id));
+                    starCell.appendChild(starButton);
+                    tr.appendChild(starCell);
+
+                    const appendTextCell = text => {
+                        const td = document.createElement('td');
+                        td.textContent = text;
+                        tr.appendChild(td);
+                    };
+                    const appendResultCell = html => {
+                        const td = document.createElement('td');
+                        td.innerHTML = html;
+                        tr.appendChild(td);
+                    };
+
+                    appendTextCell(patient.id);
+                    appendResultCell(patient.totals.solidVdtHtml);
+                    appendResultCell(patient.totals.coreVdtHtml);
+                    appendResultCell(patient.totals.ggoVdtHtml);
+
+                    const notesCell = document.createElement('td');
+                    const notes = document.createElement('textarea');
+                    notes.className = 'notes-area';
+                    notes.value = patient.notes || '';
+                    notes.addEventListener('blur', () => saveNote(patient.id, notes.value));
+                    notesCell.appendChild(notes);
+                    tr.appendChild(notesCell);
+
+                    const actionsCell = document.createElement('td');
+                    actionsCell.className = 'patient-actions';
+                    const loadButton = document.createElement('button');
+                    loadButton.className = 'control-btn add-row-btn';
+                    loadButton.textContent = 'Load';
+                    loadButton.addEventListener('click', () => loadFromManager(patient.id));
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'control-btn remove-row-btn';
+                    deleteButton.textContent = 'Del';
+                    deleteButton.addEventListener('click', () => deletePatient(patient.id));
+                    actionsCell.append(loadButton, deleteButton);
+                    tr.appendChild(actionsCell);
                     patientListBody.appendChild(tr);
                 });
                 patientManagerModal.classList.remove('hidden');
@@ -1677,12 +1847,16 @@
                 if (!pTableData || pTableData.length < 2) return baseReturn;
                 const dataForCalc = pTableData.map(d => ({...d, dateObj: parseDateString(d.date), solid: parseFloat(d.solid), core: parseFloat(d.core), nonsolid: parseFloat(d.nonsolid) })).filter(d => d.dateObj).sort((a, b) => a.dateObj - b.dateObj);
                 if (dataForCalc.length < 2) return baseReturn;
-                const firstForTotal = (pIsNewNodule && dataForCalc.length > 1) ? dataForCalc[1] : dataForCalc[0];
+                const useNewNoduleMaximum = pIsNewNodule && dataForCalc.length === 2;
+                const firstForTotal = (pIsNewNodule && dataForCalc.length > 2) ? dataForCalc[1] : dataForCalc[0];
                 const last = dataForCalc[dataForCalc.length - 1];
                 const totalTimeDiff = (last.dateObj - firstForTotal.dateObj) / (1000 * 60 * 60 * 24);
-                const solidResult = calculateSingleVDT(last.solid, firstForTotal.solid, totalTimeDiff);
-                const coreResult = calculateSingleVDT(last.core, firstForTotal.core, totalTimeDiff);
-                const ggoResult = calculateSingleVDT(last.nonsolid, firstForTotal.nonsolid, totalTimeDiff);
+                const baselineSolid = useNewNoduleMaximum ? 15 : firstForTotal.solid;
+                const baselineCore = useNewNoduleMaximum ? 15 : firstForTotal.core;
+                const baselineGgo = useNewNoduleMaximum ? 15 : firstForTotal.nonsolid;
+                const solidResult = calculateSingleVDT(last.solid, baselineSolid, totalTimeDiff, useNewNoduleMaximum);
+                const coreResult = calculateSingleVDT(last.core, baselineCore, totalTimeDiff, useNewNoduleMaximum);
+                const ggoResult = calculateSingleVDT(last.nonsolid, baselineGgo, totalTimeDiff, useNewNoduleMaximum);
                 const formatVdtForManager = (result) => {
                     if (!result || !result.value) return { html: '-', numeric: null };
                     let display = result.value === 'Stable' ? 'Stable' : `${result.value}d`;
@@ -1701,27 +1875,58 @@
                 const isPositive = (styledSolid.numeric > 0 && styledSolid.numeric <= 400) || (styledCore.numeric > 0 && styledCore.numeric <= 400) || (styledGgo.numeric > 0 && styledGgo.numeric <= 400);
                 return { solidVdtHtml: styledSolid.html, coreVdtHtml: styledCore.html, ggoVdtHtml: styledGgo.html, isPositive: isPositive };
             }
-            window.toggleStar = function(pid) { const str=localStorage.getItem(`vdt-calc-${pid}`); if(str){ const d=JSON.parse(str); d.isStarred=!d.isStarred; localStorage.setItem(`vdt-calc-${pid}`, JSON.stringify(d)); openPatientManager(); }};
-            window.saveNote = function(pid, txt) { const str=localStorage.getItem(`vdt-calc-${pid}`); if(str){ const d=JSON.parse(str); d.notes=txt; localStorage.setItem(`vdt-calc-${pid}`, JSON.stringify(d)); }};
-            window.loadFromManager = function(pid) { loadData(pid); patientManagerModal.classList.add('hidden'); };
-            window.deletePatient = function(pid) { if(confirm('Delete?')){ localStorage.removeItem(`vdt-calc-${pid}`); openPatientManager(); }};
+            function updateStoredPatient(pid, updater) {
+                const str = localStorage.getItem(`vdt-calc-${pid}`);
+                if (!str) return;
+                try {
+                    const data = JSON.parse(str);
+                    updater(data);
+                    localStorage.setItem(`vdt-calc-${pid}`, JSON.stringify(data));
+                } catch (error) {
+                    alert(`Unable to update ${pid}: stored data is invalid.`);
+                }
+            }
+
+            function toggleStar(pid) {
+                updateStoredPatient(pid, data => { data.isStarred = !data.isStarred; });
+                openPatientManager();
+            }
+            function saveNote(pid, text) { updateStoredPatient(pid, data => { data.notes = text; }); }
+            function loadFromManager(pid) { loadData(pid); patientManagerModal.classList.add('hidden'); }
+            function deletePatient(pid) {
+                if (confirm(`Delete patient record “${pid}”? This cannot be undone.`)) {
+                    localStorage.removeItem(`vdt-calc-${pid}`);
+                    openPatientManager();
+                }
+            }
 
             function saveData() {
                 const pid = patientIdInput.value.trim();
-                if (!pid) { alert('Please enter a Patient ID.'); return; }
+                if (!pid) { alert('Please enter a Patient ID.'); return false; }
                 let existing = {};
                 const str = localStorage.getItem(`vdt-calc-${pid}`);
-                if(str) existing = JSON.parse(str);
+                if (str) {
+                    try { existing = JSON.parse(str); }
+                    catch (error) { alert('The existing record is invalid and was not overwritten.'); return false; }
+                }
                 const data = { ...existing, tableData: tableData, isNewNodule: newNoduleCheckbox.checked, isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
-                localStorage.setItem(`vdt-calc-${pid}`, JSON.stringify(data));
+                try {
+                    localStorage.setItem(`vdt-calc-${pid}`, JSON.stringify(data));
+                } catch (error) {
+                    alert('Unable to save this record. Browser storage may be full or unavailable.');
+                    return false;
+                }
                 const orig = saveBtn.textContent; saveBtn.textContent = 'Saved!'; setTimeout(() => saveBtn.textContent = orig, 2000);
+                return true;
             }
             function loadData(pid) {
                 const id = pid || patientIdInput.value.trim();
                 if(!id) return;
                 const str = localStorage.getItem(`vdt-calc-${id}`);
                 if(str) {
-                    const data = JSON.parse(str);
+                    let data;
+                    try { data = JSON.parse(str); }
+                    catch (error) { alert(`Unable to load ${id}: stored data is invalid.`); return; }
                     patientIdInput.value = id;
                     tableData = data.tableData || [];
                     newNoduleCheckbox.checked = data.isNewNodule || false;
@@ -1732,7 +1937,7 @@
                     renderTable();
                 }
             }
-            function saveAndNew() { saveData(); clearAll(); }
+            function saveAndNew() { if (saveData()) clearAll(); }
 
             addScanBtn.addEventListener('click', addScan);
             clearBtn.addEventListener('click', clearAll);
@@ -1763,16 +1968,17 @@
             document.addEventListener('mouseover', (e) => { if(e.target.classList.contains('tooltip-icon')) showTooltip(e.target, e.target.dataset.tooltip); });
             document.addEventListener('mouseout', (e) => { if(e.target.classList.contains('tooltip-icon')) hideTooltip(); });
 
-            function initializeWithPreset() {
+            function initializeEmptyCalculator() {
                 createTooltip();
-                const testId = "Version Test";
-                if (!localStorage.getItem(`vdt-calc-${testId}`)) {
-                    const dummyData = { tableData: [ { id: 1, date: '2023-01-15', solid: 45, core: 28, nonsolid: 15, isBaseline: true }, { id: 2, date: '2023-04-20', solid: 52, core: 32, nonsolid: 18, isBaseline: false }, { id: 3, date: '2024-01-18', solid: 68, core: 40, nonsolid: 25, isBaseline: false }, { id: 4, date: '2025-01-22', solid: 85, core: 50, nonsolid: 32, isBaseline: false } ], isNewNodule: false, isLogScale: false, isPrediction: true, isStarred: true, notes: "Auto-generated test case." };
-                    localStorage.setItem(`vdt-calc-${testId}`, JSON.stringify(dummyData));
-                }
                 tableData = []; uniqueRowId = 0; for(let i=0; i<4; i++) addScan();
             }
-            initializeWithPreset();
+            initializeEmptyCalculator();
+
+            if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+                navigator.serviceWorker.register('./sw.js').catch(error => {
+                    console.warn('Offline support could not be enabled.', error);
+                });
+            }
         };
     </script>
 </body>
