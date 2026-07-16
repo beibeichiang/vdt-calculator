@@ -2,6 +2,10 @@
 
 A browser-based volume doubling time (VDT) calculator for longitudinal pulmonary nodule measurements. It supports solid, core, and non-solid volumes, scan-to-scan and total VDT, projections, local patient worklists, and CSV backup/restore.
 
+For screening-round labels, enter one standard anchor (`Baseline`, `1st Annual`, `2nd Annual`, or `Biennial`, optionally followed by `+3m`, `+6m`, or `+9m`). The app infers the adjacent labels from scan dates, including partial four-scan series that do not contain the baseline scan.
+
+When **New Nodule (Max VDT)** is selected, the preceding absent scan remains visually blank and the first measured volume is marked `(new)`. The 15 mm³ threshold is used only internally to calculate VDTmax.
+
 ## Use
 
 Open the published site in Chrome and choose **Install Dynamic VDT Calculator** from the browser menu. Patient records are stored in that browser's local storage; use **Export CSV** regularly to create portable backups.

@@ -626,6 +626,25 @@
         .scan-label-input:focus {
             color: var(--primary-color);
         }
+        .scan-label-input.is-anchor {
+            border-color: var(--primary-color);
+            background: #eaf7fb;
+            box-shadow: inset 3px 0 0 var(--primary-color);
+        }
+        .volume-input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .volume-input-wrap input {
+            min-width: 0;
+        }
+        .new-nodule-badge {
+            color: var(--primary-color);
+            font-size: 0.75rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
 
     </style>
 </head>
@@ -636,7 +655,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v3.0</span></h1>
+                    <h1>Dynamic VDT Calculator <span class="version-tag" id="version-log-btn">v3.1</span></h1>
                     <p class="eyebrow">Longitudinal pulmonary nodule volume analysis</p>
                 </div>
             </div>
@@ -672,7 +691,7 @@
                 <div class="new-nodule-control">
                     <input type="checkbox" id="new-nodule-checkbox">
                     <label for="new-nodule-checkbox">New Nodule (Max VDT)</label>
-                    <span class="tooltip-icon" data-tooltip="For first-time nodules. Assumes 15mm³ pre-existence.">?</span>
+                    <span class="tooltip-icon" data-tooltip="For first-time nodules. The absent prior scan stays blank; 15 mm³ is used only as a hidden VDTmax calculation threshold.">?</span>
                 </div>
                 <div class="new-nodule-control">
                     <input type="checkbox" id="log-scale-checkbox">
@@ -714,6 +733,13 @@
                 </tbody>
             </table>
         </div>
+
+        <datalist id="scan-label-options">
+            <option value="Baseline"><option value="Baseline+3m"><option value="Baseline+6m"><option value="Baseline+9m">
+            <option value="1st Annual"><option value="1st Annual+3m"><option value="1st Annual+6m"><option value="1st Annual+9m">
+            <option value="2nd Annual"><option value="2nd Annual+3m"><option value="2nd Annual+6m"><option value="2nd Annual+9m">
+            <option value="Biennial"><option value="Biennial+3m"><option value="Biennial+6m"><option value="Biennial+9m">
+        </datalist>
 
         <div class="total-results-container" id="total-results-container">
             <!-- Totals injected via JS -->
@@ -781,8 +807,18 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.0 - Reliability &amp; App Experience</div>
+                    <div class="changelog-version">v3.1 - Expert Read Workflow</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>New nodules:</strong> The absent prior volume stays blank, while the first measured volume is marked “(new)”.</li>
+                            <li><strong>Copy report:</strong> Total VDT appears only when at least two comparable regular VDT intervals exist.</li>
+                            <li><strong>Screening labels:</strong> Enter any one standard round as an anchor to infer adjacent annual and repeat-3m labels.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.0 - Reliability &amp; App Experience</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>PWA:</strong> New install icon and reliable offline app shell.</li>
@@ -908,12 +944,12 @@
                         <input type="radio" name="baseline-group" class="baseline-radio" ${dataRow.isBaseline ? 'checked' : ''}>
                     </td>
                     <td class="scan-number scan-number-col">
-                         <input type="text" class="scan-label-input" value="${safeAttr(dataRow.customLabel)}" placeholder="-">
+                         <input type="text" class="scan-label-input" list="scan-label-options" value="${safeAttr(dataRow.customLabel)}" placeholder="Type one anchor label">
                     </td>
                     <td><input type="text" class="date-input" value="${safeAttr(dataRow.date)}" placeholder="YYYY-MM-DD" inputmode="numeric"></td>
-                    <td><input type="number" class="solid-input" value="${safeAttr(dataRow.solid)}" min="0" step="0.1"></td>
-                    <td><input type="number" class="core-input" value="${safeAttr(dataRow.core)}" min="0" step="0.1"></td>
-                    <td><input type="number" class="nonsolid-input" value="${safeAttr(dataRow.nonsolid)}" min="0" step="0.1"></td>
+                    <td><div class="volume-input-wrap"><input type="number" class="solid-input" value="${safeAttr(dataRow.solid)}" min="0" step="0.1"><span class="new-nodule-badge hidden">(new)</span></div></td>
+                    <td><div class="volume-input-wrap"><input type="number" class="core-input" value="${safeAttr(dataRow.core)}" min="0" step="0.1"><span class="new-nodule-badge hidden">(new)</span></div></td>
+                    <td><div class="volume-input-wrap"><input type="number" class="nonsolid-input" value="${safeAttr(dataRow.nonsolid)}" min="0" step="0.1"><span class="new-nodule-badge hidden">(new)</span></div></td>
                     <td class="result-cell vdt-solid-result">-</td>
                     <td class="result-cell vdt-core-result">-</td>
                     <td class="result-cell vdt-ggo-result">-</td>
@@ -1002,6 +1038,36 @@
                 labelInput.addEventListener('input', (e) => {
                      dataRow.customLabel = e.target.value;
                 });
+                const commitLabel = () => {
+                    const value = labelInput.value.trim();
+                    const parsed = VDTCore.parseScanLabel(value);
+                    if (parsed) {
+                        tableData.forEach(row => {
+                            if (row.id !== dataRow.id && row.isLabelAnchor) {
+                                row.isLabelAnchor = false;
+                                if (VDTCore.parseScanLabel(row.customLabel)) row.labelSource = 'auto';
+                            }
+                        });
+                        dataRow.customLabel = parsed.canonical;
+                        dataRow.isLabelAnchor = true;
+                        dataRow.labelSource = 'manual';
+                    } else {
+                        dataRow.isLabelAnchor = false;
+                        dataRow.labelSource = value ? 'manual' : 'auto';
+                        dataRow.customLabel = value;
+                    }
+                    updateScanLabels();
+                    calculateAll();
+                };
+                labelInput.addEventListener('change', commitLabel);
+                labelInput.addEventListener('blur', commitLabel);
+                labelInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        commitLabel();
+                        labelInput.blur();
+                    }
+                });
                 
                 return tr;
             }
@@ -1015,6 +1081,10 @@
 
                 const labelInp = tr.querySelector('.scan-label-input');
                 if (document.activeElement !== labelInp) labelInp.value = dataRow.customLabel || '';
+                labelInp.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
+                labelInp.title = dataRow.isLabelAnchor
+                    ? 'Label anchor: other scan labels are inferred from this date.'
+                    : 'Enter one standard screening label to infer the other labels.';
 
                 const safeVal = (v) => (v === undefined || v === null) ? '' : v;
                 const solidInp = tr.querySelector('.solid-input');
@@ -1052,105 +1122,24 @@
             }
 
             function updateScanLabels() {
-                // Sort Chronologically (Oldest -> Newest)
-                const chronoData = [...tableData]
-                    .map(d => ({...d, dateObj: parseDateString(d.date)}))
-                    .filter(d => d.dateObj)
-                    .sort((a, b) => a.dateObj - b.dateObj); 
+                const labels = VDTCore.inferScanLabels(tableData);
+                tableData.forEach(dataRow => {
+                    const isCustomText = dataRow.labelSource === 'manual'
+                        && !dataRow.isLabelAnchor
+                        && !VDTCore.parseScanLabel(dataRow.customLabel);
+                    if (!isCustomText && labels[dataRow.id]) {
+                        dataRow.customLabel = labels[dataRow.id];
+                        if (!dataRow.isLabelAnchor) dataRow.labelSource = 'auto';
+                    }
 
-                const baselineRow = chronoData.find(d => d.isBaseline);
-                
-                // Track slots filled
-                let firstAnnualScan = null;
-                let secondAnnualScan = null;
-                let biennialScan = null;
-
-                // 1. Identify Anchors First (First scan in window wins)
-                if (baselineRow) {
-                    chronoData.forEach(scan => {
-                        if (scan.id === baselineRow.id) return;
-                        const diffTime = scan.dateObj - baselineRow.dateObj;
-                        const months = diffTime / (1000 * 60 * 60 * 24 * 30.44);
-                        
-                        if (months >= 9.5 && months < 21.5) {
-                            if (!firstAnnualScan) firstAnnualScan = scan;
-                        } else if (months >= 21.5) {
-                            if (firstAnnualScan) {
-                                if (!secondAnnualScan) secondAnnualScan = scan;
-                            } else {
-                                if (!biennialScan) biennialScan = scan;
-                            }
-                        }
-                    });
-                }
-
-                // 2. Assign labels based on Anchors or offsets
-                chronoData.forEach(currentScan => {
-                     const dataRow = tableData.find(d => d.id === currentScan.id);
-                     const tr = tableBody.querySelector(`tr[data-id="${dataRow.id}"]`);
-                     const input = tr ? tr.querySelector('.scan-label-input') : null;
-                     
-                     let generatedLabel = '-';
-
-                     if (baselineRow) {
-                        if (currentScan.id === baselineRow.id) {
-                             generatedLabel = "Baseline";
-                         } else {
-                             // Check if it's an anchor
-                             if (firstAnnualScan && currentScan.id === firstAnnualScan.id) {
-                                 generatedLabel = "1st Annual";
-                             } else if (secondAnnualScan && currentScan.id === secondAnnualScan.id) {
-                                 generatedLabel = "2nd Annual";
-                             } else if (biennialScan && currentScan.id === biennialScan.id) {
-                                 generatedLabel = "Biennial";
-                             } else {
-                                 // Calculate offset relative to nearest preceding anchor
-                                 let anchorDate = baselineRow.dateObj;
-                                 let anchorLabel = "Baseline";
-                                 
-                                 // Determine relevant anchor
-                                 if (secondAnnualScan && currentScan.dateObj > secondAnnualScan.dateObj) {
-                                     anchorDate = secondAnnualScan.dateObj;
-                                     anchorLabel = "2nd Annual";
-                                 } else if (biennialScan && currentScan.dateObj > biennialScan.dateObj) {
-                                     anchorDate = biennialScan.dateObj;
-                                     anchorLabel = "Biennial";
-                                 } else if (firstAnnualScan && currentScan.dateObj > firstAnnualScan.dateObj) {
-                                     anchorDate = firstAnnualScan.dateObj;
-                                     anchorLabel = "1st Annual";
-                                 }
-                                 
-                                 const diff = (currentScan.dateObj - anchorDate) / (1000 * 60 * 60 * 24 * 30.44);
-                                 
-                                 if (diff < 0) {
-                                     generatedLabel = "Pre-" + anchorLabel; 
-                                 } else {
-                                     // Bucket into 3m, 6m, 9m
-                                     if (diff < 1.5) generatedLabel = anchorLabel; 
-                                     else if (diff < 4.5) generatedLabel = anchorLabel + "+3m";
-                                     else if (diff < 7.5) generatedLabel = anchorLabel + "+6m";
-                                     else if (diff < 10.5) generatedLabel = anchorLabel + "+9m";
-                                     else generatedLabel = anchorLabel + "+>9m"; // Fallback
-                                 }
-                             }
-                         }
-                     } else {
-                         // Fallback logic
-                         const descArr = [...chronoData].reverse();
-                         const descIndex = descArr.findIndex(d => d.id === currentScan.id);
-                         generatedLabel = descIndex === 0 ? 'Scan 0' : `Scan -${descIndex}`;
-                     }
-
-                     // Update Model & View if not focused
-                     if (input && document.activeElement !== input) {
-                         dataRow.customLabel = generatedLabel; 
-                         input.value = generatedLabel;
-                     }
+                    const input = tableBody.querySelector(`tr[data-id="${dataRow.id}"] .scan-label-input`);
+                    if (input && document.activeElement !== input) input.value = dataRow.customLabel || '';
+                    if (input) input.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
                 });
             }
 
             function addScan() {
-                tableData.push({ id: uniqueRowId++, date: '', solid: '', core: '', nonsolid: '', isBaseline: false, customLabel: '' });
+                tableData.push({ id: uniqueRowId++, date: '', solid: '', core: '', nonsolid: '', isBaseline: false, customLabel: '', labelSource: 'auto', isLabelAnchor: false });
                 renderTable();
             }
 
@@ -1166,6 +1155,8 @@
             function setBaseline(rowId) {
                 tableData.forEach(d => {
                     d.isBaseline = (d.id === rowId);
+                    d.isLabelAnchor = false;
+                    if (VDTCore.parseScanLabel(d.customLabel)) d.labelSource = 'auto';
                 });
                 renderTable(); 
             }
@@ -1207,8 +1198,21 @@
                     .sort((a, b) => a.dateObj - b.dateObj);
 
                 document.querySelectorAll('.result-cell').forEach(c => c.innerHTML = '-');
+                document.querySelectorAll('.new-nodule-badge').forEach(badge => badge.classList.add('hidden'));
                 totalResultsContainer.innerHTML = '';
                 predictionResultsContainer.classList.add('hidden');
+
+                if (isNewNodule && dataForCalc.length > 1) {
+                    const firstAppearanceRow = tableBody.querySelector(`tr[data-id="${dataForCalc[1].id}"]`);
+                    if (firstAppearanceRow) {
+                        ['solid', 'core', 'nonsolid'].forEach(type => {
+                            const value = dataForCalc[1][type];
+                            const input = firstAppearanceRow.querySelector(`.${type}-input`);
+                            const badge = input?.parentElement.querySelector('.new-nodule-badge');
+                            if (badge && Number.isFinite(value) && value > 0) badge.classList.remove('hidden');
+                        });
+                    }
+                }
 
                 let firstSolid, firstCore, firstGgo; 
                 
@@ -1325,12 +1329,7 @@
                 const ctx = chartCanvas.getContext('2d');
                 
                 let chartData = data.map(d => ({...d}));
-                const isNewNodule = newNoduleCheckbox.checked;
                 const useLog = logScaleCheckbox.checked;
-
-                if (isNewNodule && chartData.length > 0) {
-                    chartData[0].solid = 15; chartData[0].core = 15; chartData[0].nonsolid = 15;
-                }
 
                 const validData = chartData.filter(d => !isNaN(d.solid) || !isNaN(d.core) || !isNaN(d.nonsolid));
                 if (validData.length < 1) return;
@@ -1522,7 +1521,9 @@
                 else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:#3498db">${disp}</b>`;
                 else disp = `<b>${disp}</b>`;
                 
-                html += `<tr><td colspan="${numCols}" style="${cellStyle}">${lbl}: ${disp}</td></tr>`;
+                if (VDTCore.shouldShowTotalInReport(dataForCalc.length, isNewNodule)) {
+                    html += `<tr><td colspan="${numCols}" style="${cellStyle}">${lbl}: ${disp}</td></tr>`;
+                }
                 
                 // Scans Row
                 html += '<tr>';
@@ -1537,8 +1538,11 @@
                 html += '<tr>';
                 dataForCalc.forEach((s, i) => {
                     let v = type==='solid' ? s.solid : (type==='core' ? s.core : s.nonsolid);
-                    if(i === dataForCalc.length - 1 && document.getElementById('new-nodule-checkbox').checked) v = 15;
-                    html += `<td style="${cellStyle}">${isNaN(v)?'N/A':v.toFixed(0)+' mm³'}</td>`;
+                    const state = VDTCore.getNewNoduleReportState(i, dataForCalc.length, isNewNodule);
+                    let volumeText = isNaN(v) ? 'N/A' : `${v.toFixed(0)} mm³`;
+                    if (state === 'absent') volumeText = '';
+                    else if (state === 'new' && !isNaN(v)) volumeText += ' (new)';
+                    html += `<td style="${cellStyle}">${volumeText}</td>`;
                     if(i < dataForCalc.length -1) html += `<td style="${cellStyle}"></td>`;
                 });
                 html += '</tr>';
@@ -1600,7 +1604,7 @@
             // --- Export / Import CSV Data Migration ---
 
             function exportAllToCSV() {
-                const rows = [["PatientID", "Date", "Solid", "Core", "NonSolid", "Baseline", "CustomLabel", "Notes", "IsStarred", "NewNodule"]];
+                const rows = [["PatientID", "Date", "Solid", "Core", "NonSolid", "Baseline", "CustomLabel", "LabelAnchor", "LabelSource", "Notes", "IsStarred", "NewNodule"]];
                 let hasData = false;
 
                 for (let i = 0; i < localStorage.length; i++) {
@@ -1621,6 +1625,8 @@
                                             row.nonsolid || '',
                                             row.isBaseline || false,
                                             row.customLabel || '',
+                                            row.isLabelAnchor || false,
+                                            row.labelSource || 'auto',
                                             data.notes || '',
                                             data.isStarred || false,
                                             data.isNewNodule || false
@@ -1680,6 +1686,8 @@
                     const ggoIdx = headers.findIndex(h => h === 'nonsolid' || h === 'non-solid' || h === 'ggo');
                     const baselineIdx = headers.findIndex(h => h.includes('baseline'));
                     const labelIdx = headers.findIndex(h => h.includes('label') || h.includes('scan #') || h === 'scan');
+                    const labelAnchorIdx = headers.findIndex(h => h.includes('labelanchor') || h.includes('label anchor'));
+                    const labelSourceIdx = headers.findIndex(h => h.includes('labelsource') || h.includes('label source'));
                     const notesIdx = headers.findIndex(h => h.includes('note'));
                     const starIdx = headers.findIndex(h => h.includes('star'));
                     const newNodIdx = headers.findIndex(h => h.includes('newnodule') || h.includes('new nodule'));
@@ -1712,7 +1720,9 @@
                             core: coreIdx !== -1 ? cols[coreIdx] : '',
                             nonsolid: ggoIdx !== -1 ? cols[ggoIdx] : '',
                             isBaseline: baselineIdx !== -1 ? (cols[baselineIdx].toLowerCase() === 'true' || cols[baselineIdx] === '1') : false,
-                            customLabel: labelIdx !== -1 ? cols[labelIdx] : ''
+                            customLabel: labelIdx !== -1 ? cols[labelIdx] : '',
+                            isLabelAnchor: labelAnchorIdx !== -1 ? (cols[labelAnchorIdx].toLowerCase() === 'true' || cols[labelAnchorIdx] === '1') : false,
+                            labelSource: labelSourceIdx !== -1 ? cols[labelSourceIdx] : 'auto'
                         });
                     }
 
