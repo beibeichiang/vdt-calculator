@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.1"></script>
+    <script src="./vdt-core.js?v=3.3.2"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -218,7 +218,22 @@
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(23, 107, 115, 0.12);
         }
-        .add-nodule-btn { height: 32px; min-width: 104px; padding: 5px 10px; white-space: nowrap; }
+        .add-nodule-btn { height: 32px; min-width: 104px; padding: 5px 10px; white-space: nowrap; flex: none; }
+        .delete-nodule-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border: 1px solid #E2BBB7;
+            border-radius: 50%;
+            background: #FFF8F7;
+            color: var(--accent-red);
+            font-size: 19px;
+            line-height: 1;
+            cursor: pointer;
+            flex: none;
+        }
+        .delete-nodule-btn:hover:not(:disabled) { background: #FEECEB; border-color: #D8948E; }
+        .delete-nodule-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
         /* --- Controls & Buttons --- */
         .table-controls {
@@ -412,11 +427,10 @@
         
         /* Column widths */
         .row-controls { width: 35px; }
-        .baseline-col { width: 76px; min-width: 76px; }
         .scan-number-col { width: 185px; min-width: 185px; font-weight: 600; color: var(--text-light); }
-        .scan-label-select {
+        .scan-label-trigger {
             width: 100%;
-            padding: 7px 5px;
+            padding: 7px 8px;
             border: 1px solid #D5DCE3;
             border-radius: 4px;
             color: #40505D;
@@ -424,14 +438,68 @@
             font: inherit;
             font-size: 0.8rem;
             font-weight: 600;
+            text-align: left;
             cursor: pointer;
         }
-        .scan-label-select:focus { border-color: var(--primary-color); outline: none; }
-        .scan-label-select.is-anchor {
+        .scan-label-trigger::after { content: '⌄'; float: right; color: #7B8792; }
+        .scan-label-trigger:focus { border-color: var(--primary-color); outline: none; }
+        .scan-label-trigger.is-anchor {
             border-color: var(--primary-color);
             background: #EDF6F6;
             box-shadow: inset 3px 0 0 var(--primary-color);
         }
+
+        .screening-label-menu {
+            display: none;
+            position: fixed;
+            z-index: 5000;
+            min-width: 158px;
+            padding: 5px;
+            border: 1px solid #CBD3DB;
+            border-radius: 8px;
+            background: #FFFFFF;
+            box-shadow: 0 12px 30px rgba(23, 54, 77, 0.18);
+        }
+        .screening-label-menu.open { display: block; }
+        .screening-menu-stage { position: relative; }
+        .screening-menu-primary, .screening-menu-secondary {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            min-height: 34px;
+            padding: 7px 10px;
+            border: none;
+            border-radius: 5px;
+            color: #33424F;
+            background: transparent;
+            font: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: left;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .screening-menu-primary::after { content: '›'; margin-left: auto; color: #7B8792; font-size: 1rem; }
+        .screening-menu-primary:hover, .screening-menu-primary:focus,
+        .screening-menu-secondary:hover, .screening-menu-secondary:focus {
+            color: var(--primary-color);
+            background: #EDF6F6;
+            outline: none;
+        }
+        .screening-menu-submenu {
+            display: none;
+            position: absolute;
+            top: -5px;
+            left: calc(100% - 2px);
+            min-width: 170px;
+            padding: 5px;
+            border: 1px solid #CBD3DB;
+            border-radius: 8px;
+            background: #FFFFFF;
+            box-shadow: 0 12px 30px rgba(23, 54, 77, 0.18);
+        }
+        .screening-menu-stage:hover > .screening-menu-submenu,
+        .screening-menu-stage:focus-within > .screening-menu-submenu { display: block; }
 
         .extra-info {
             margin-top: 3px;
@@ -441,13 +509,6 @@
             white-space: nowrap;
         }
         .total-result-box .extra-info { font-size: 0.73rem; }
-
-        .baseline-radio {
-            cursor: pointer;
-            width: 16px;
-            height: 16px;
-            accent-color: var(--primary-color);
-        }
 
         /* Delete Controls */
         .delete-row-btn {
@@ -717,7 +778,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.1</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.2</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -737,10 +798,11 @@
             <label>Nodules</label>
             <div class="nodule-switcher" aria-label="Nodules for this patient">
                 <div class="nodule-tabs" id="nodule-tabs"></div>
-                <button type="button" class="control-btn add-nodule-btn" id="add-nodule-btn">+ Add nodule</button>
             </div>
-            <label for="nodule-location">Location</label>
+            <label for="nodule-location">Location <span style="font-weight: 400; color: var(--text-light);">(optional)</span></label>
             <input type="text" id="nodule-location" placeholder="e.g. RUL #133" autocomplete="off" spellcheck="false">
+            <button type="button" class="control-btn add-nodule-btn" id="add-nodule-btn">+ Add nodule</button>
+            <button type="button" class="delete-nodule-btn" id="delete-nodule-btn" aria-label="Delete current nodule" title="Delete current nodule">&times;</button>
             <span class="patient-id-hint">Stored locally in this browser. Use Backup for a portable copy.</span>
         </div>
 
@@ -786,7 +848,6 @@
                 <thead>
                     <tr>
                         <th class="row-controls"></th>
-                        <th class="baseline-col" title="Select the baseline scan">Baseline</th>
                         <th class="scan-number-col">Screening round</th>
                         <th>Date</th>
                         <th>Solid (mm³)</th>
@@ -802,6 +863,8 @@
                 </tbody>
             </table>
         </div>
+
+        <div id="screening-label-menu" class="screening-label-menu" role="menu" aria-label="Choose screening round"></div>
 
         <div class="total-results-container" id="total-results-container">
             <!-- Totals injected via JS -->
@@ -871,8 +934,18 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.3.1 - Nodule Switching</div>
+                    <div class="changelog-version">v3.3.2 - Hierarchical Screening Menu</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Two-level labels:</strong> Choose a routine screening round directly or hover to select its +3m, +6m, or +9m repeat.</li>
+                            <li><strong>Simpler table:</strong> Removed the redundant Baseline radio column.</li>
+                            <li><strong>Nodule controls:</strong> Location is explicitly optional, and the active nodule can be deleted when another nodule remains.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.1 - Nodule Switching</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>One clean label control:</strong> Replaced the duplicate label inputs with a single screening-round selector.</li>
@@ -995,7 +1068,9 @@
             const patientIdInput = document.getElementById('patient-id');
             const noduleTabs = document.getElementById('nodule-tabs');
             const addNoduleBtn = document.getElementById('add-nodule-btn');
+            const deleteNoduleBtn = document.getElementById('delete-nodule-btn');
             const noduleLocationInput = document.getElementById('nodule-location');
+            const screeningLabelMenu = document.getElementById('screening-label-menu');
             const totalResultsContainer = document.getElementById('total-results-container');
             const predictionResultsContainer = document.getElementById('prediction-results-container');
             const sortOrderSelect = document.getElementById('sort-order');
@@ -1032,16 +1107,11 @@
             let tableData = [];
             let volumeChart = null;
             let currentNoduleId = 'Nodule 1';
+            let activeLabelRow = null;
+            let activeLabelTrigger = null;
             const STORAGE_PREFIX = 'vdt-calc-';
             const NODULE_SEPARATOR = '::nodule::';
             const DEFAULT_NODULE_ID = 'Nodule 1';
-            const SCAN_LABEL_OPTIONS = [
-                'Baseline', 'Baseline+3m', 'Baseline+6m', 'Baseline+9m',
-                '1st Annual', '1st Annual+3m', '1st Annual+6m', '1st Annual+9m',
-                '2nd Annual', '2nd Annual+3m', '2nd Annual+6m', '2nd Annual+9m',
-                'Biennial', 'Biennial+3m', 'Biennial+6m', 'Biennial+9m'
-            ];
-
             function normalizeNoduleId(value) {
                 return String(value || '').trim() || DEFAULT_NODULE_ID;
             }
@@ -1119,6 +1189,10 @@
                     button.addEventListener('click', () => switchNodule(noduleId));
                     noduleTabs.appendChild(button);
                 });
+                deleteNoduleBtn.disabled = ids.length <= 1;
+                deleteNoduleBtn.title = ids.length <= 1
+                    ? 'At least one nodule is required'
+                    : `Delete ${noduleDisplayLabel(currentNoduleId)}`;
             }
 
             function switchNodule(noduleId) {
@@ -1158,13 +1232,90 @@
                 noduleLocationInput.focus();
             }
 
-            function populateLabelSelect(select, dataRow) {
-                const current = dataRow.customLabel || 'Select label';
-                select.innerHTML = `<option value="" selected disabled>${VDTCore.escapeHtml(current)}</option><optgroup label="Set label anchor">${SCAN_LABEL_OPTIONS.map(label => `<option value="${label}">${label}</option>`).join('')}</optgroup>`;
-                select.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
-                select.title = dataRow.isLabelAnchor
+            function deleteCurrentNodule() {
+                const pid = patientIdInput.value.trim();
+                const ids = getPatientNodules(pid);
+                if (!pid || ids.length <= 1) return;
+                const label = noduleDisplayLabel(currentNoduleId);
+                if (!confirm(`Delete ${label}${noduleLocationInput.value.trim() ? ` · ${noduleLocationInput.value.trim()}` : ''}? This cannot be undone.`)) return;
+                localStorage.removeItem(getStorageKey(pid, currentNoduleId));
+                let remaining = getPatientNodules(pid);
+                if (remaining.every(id => /^Nodule \d+$/i.test(id))) {
+                    const records = remaining.map(id => ({
+                        oldId: id,
+                        data: JSON.parse(localStorage.getItem(getStorageKey(pid, id)))
+                    }));
+                    records.forEach(record => localStorage.removeItem(getStorageKey(pid, record.oldId)));
+                    records.forEach((record, index) => {
+                        const newId = `Nodule ${index + 1}`;
+                        record.data.noduleId = newId;
+                        localStorage.setItem(getStorageKey(pid, newId), JSON.stringify(record.data));
+                    });
+                    remaining = records.map((record, index) => `Nodule ${index + 1}`);
+                }
+                currentNoduleId = remaining[0];
+                loadData(pid, currentNoduleId);
+            }
+
+            function updateLabelTrigger(trigger, dataRow) {
+                trigger.textContent = dataRow.customLabel || 'Select label';
+                trigger.setAttribute('aria-expanded', String(trigger === activeLabelTrigger && screeningLabelMenu.classList.contains('open')));
+                trigger.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
+                trigger.title = dataRow.isLabelAnchor
                     ? 'Label anchor: other scan labels are inferred from this date.'
-                    : 'Choose one known screening label; other scan labels will be inferred automatically.';
+                    : 'Choose one screening label; other scan labels will be inferred automatically.';
+            }
+
+            function setLabelAnchor(dataRow, value) {
+                const parsed = VDTCore.parseScanLabel(value);
+                if (!parsed) return;
+                tableData.forEach(row => {
+                    row.isBaseline = false;
+                    if (row.id !== dataRow.id && row.isLabelAnchor) {
+                        row.isLabelAnchor = false;
+                        if (VDTCore.parseScanLabel(row.customLabel)) row.labelSource = 'auto';
+                    }
+                });
+                dataRow.customLabel = parsed.canonical;
+                dataRow.isLabelAnchor = true;
+                dataRow.labelSource = 'manual';
+                updateScanLabels();
+                calculateAll();
+            }
+
+            function buildScreeningLabelMenu() {
+                const stages = ['Baseline', '1st Annual', '2nd Annual', 'Biennial'];
+                screeningLabelMenu.innerHTML = stages.map(stage => `
+                    <div class="screening-menu-stage">
+                        <button type="button" class="screening-menu-primary" role="menuitem" data-label="${stage}">${stage}</button>
+                        <div class="screening-menu-submenu" role="menu" aria-label="${stage} repeat scans">
+                            ${[3, 6, 9].map(month => `<button type="button" class="screening-menu-secondary" role="menuitem" data-label="${stage}+${month}m">${stage}+${month}m</button>`).join('')}
+                        </div>
+                    </div>`).join('');
+            }
+
+            function closeScreeningLabelMenu() {
+                if (activeLabelTrigger) activeLabelTrigger.setAttribute('aria-expanded', 'false');
+                screeningLabelMenu.classList.remove('open');
+                activeLabelRow = null;
+                activeLabelTrigger = null;
+            }
+
+            function openScreeningLabelMenu(dataRow, trigger) {
+                if (activeLabelTrigger === trigger && screeningLabelMenu.classList.contains('open')) {
+                    closeScreeningLabelMenu();
+                    return;
+                }
+                activeLabelRow = dataRow;
+                activeLabelTrigger = trigger;
+                trigger.setAttribute('aria-expanded', 'true');
+                const rect = trigger.getBoundingClientRect();
+                const estimatedWidth = 340;
+                const left = Math.max(8, Math.min(rect.left, window.innerWidth - estimatedWidth - 8));
+                const top = rect.bottom + 170 < window.innerHeight ? rect.bottom + 4 : Math.max(8, rect.top - 164);
+                screeningLabelMenu.style.left = `${left}px`;
+                screeningLabelMenu.style.top = `${top}px`;
+                screeningLabelMenu.classList.add('open');
             }
 
             // --- UI Helpers ---
@@ -1206,11 +1357,8 @@
                     <td class="row-controls">
                         <button class="delete-row-btn" title="Delete">&times;</button>
                     </td>
-                    <td>
-                        <input type="radio" name="baseline-group" class="baseline-radio" aria-label="Set this scan as Baseline" title="Set this scan as Baseline" ${dataRow.isBaseline ? 'checked' : ''}>
-                    </td>
                     <td class="scan-number scan-number-col">
-                        <select class="scan-label-select" aria-label="Screening round"></select>
+                        <button type="button" class="scan-label-trigger" aria-haspopup="menu" aria-label="Screening round"></button>
                     </td>
                     <td><input type="text" class="date-input" value="${safeAttr(dataRow.date)}" placeholder="YYYY-MM-DD" inputmode="numeric"></td>
                     <td><input type="number" class="solid-input" value="${safeAttr(dataRow.solid)}" min="0" step="0.1"></td>
@@ -1289,37 +1437,11 @@
 
                 tr.querySelector('.delete-row-btn').addEventListener('click', () => deleteRow(dataRow.id));
 
-                const radio = tr.querySelector('.baseline-radio');
-                radio.addEventListener('click', (e) => {
-                    if (dataRow.isBaseline) {
-                        e.preventDefault();
-                        dataRow.isBaseline = false;
-                        setTimeout(() => renderTable(), 0);
-                    } else {
-                        setBaseline(dataRow.id);
-                    }
-                });
-
-                const labelSelect = tr.querySelector('.scan-label-select');
-                populateLabelSelect(labelSelect, dataRow);
-                const commitLabel = (value) => {
-                    const parsed = VDTCore.parseScanLabel(value);
-                    if (!parsed) return;
-                    tableData.forEach(row => {
-                        if (row.id !== dataRow.id && row.isLabelAnchor) {
-                            row.isLabelAnchor = false;
-                            if (VDTCore.parseScanLabel(row.customLabel)) row.labelSource = 'auto';
-                        }
-                    });
-                    dataRow.customLabel = parsed.canonical;
-                    dataRow.isLabelAnchor = true;
-                    dataRow.labelSource = 'manual';
-                    updateScanLabels();
-                    calculateAll();
-                };
-                labelSelect.addEventListener('change', () => {
-                    commitLabel(labelSelect.value);
-                    populateLabelSelect(labelSelect, dataRow);
+                const labelTrigger = tr.querySelector('.scan-label-trigger');
+                updateLabelTrigger(labelTrigger, dataRow);
+                labelTrigger.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    openScreeningLabelMenu(dataRow, labelTrigger);
                 });
                 
                 return tr;
@@ -1332,8 +1454,8 @@
                 dateInp.classList.toggle('invalid-input', invalidDate);
                 dateInp.setAttribute('aria-invalid', String(invalidDate));
 
-                const labelSelect = tr.querySelector('.scan-label-select');
-                populateLabelSelect(labelSelect, dataRow);
+                const labelTrigger = tr.querySelector('.scan-label-trigger');
+                updateLabelTrigger(labelTrigger, dataRow);
 
                 const safeVal = (v) => (v === undefined || v === null) ? '' : v;
                 const solidInp = tr.querySelector('.solid-input');
@@ -1345,7 +1467,6 @@
                 const nonsolidInp = tr.querySelector('.nonsolid-input');
                 if (document.activeElement !== nonsolidInp) nonsolidInp.value = safeVal(dataRow.nonsolid);
 
-                tr.querySelector('.baseline-radio').checked = dataRow.isBaseline;
             }
 
             function renderTable() {
@@ -1381,8 +1502,8 @@
                         if (!dataRow.isLabelAnchor) dataRow.labelSource = 'auto';
                     }
 
-                    const select = tableBody.querySelector(`tr[data-id="${dataRow.id}"] .scan-label-select`);
-                    if (select) populateLabelSelect(select, dataRow);
+                    const trigger = tableBody.querySelector(`tr[data-id="${dataRow.id}"] .scan-label-trigger`);
+                    if (trigger) updateLabelTrigger(trigger, dataRow);
                 });
             }
 
@@ -1398,15 +1519,6 @@
                     if(tr) tr.remove();
                     renderTable();
                 }
-            }
-
-            function setBaseline(rowId) {
-                tableData.forEach(d => {
-                    d.isBaseline = (d.id === rowId);
-                    d.isLabelAnchor = false;
-                    if (VDTCore.parseScanLabel(d.customLabel)) d.labelSource = 'auto';
-                });
-                renderTable();
             }
 
             function clearAll() {
@@ -2235,6 +2347,7 @@
 
             addScanBtn.addEventListener('click', addScan);
             addNoduleBtn.addEventListener('click', addNodule);
+            deleteNoduleBtn.addEventListener('click', deleteCurrentNodule);
             clearBtn.addEventListener('click', clearAll);
             saveBtn.addEventListener('click', saveData);
             exportBtn.addEventListener('click', exportAllToCSV); // Attached new export
@@ -2261,11 +2374,27 @@
             showStarredOnlyCheckbox.addEventListener('change', openPatientManager);
             showPositiveOnlyCheckbox.addEventListener('change', openPatientManager);
             showNewNoduleOnlyCheckbox.addEventListener('change', openPatientManager);
+            screeningLabelMenu.addEventListener('click', (event) => {
+                const option = event.target.closest('[data-label]');
+                if (!option || !activeLabelRow) return;
+                const trigger = activeLabelTrigger;
+                setLabelAnchor(activeLabelRow, option.dataset.label);
+                closeScreeningLabelMenu();
+                if (trigger) trigger.focus();
+            });
+            document.addEventListener('click', (event) => {
+                if (!screeningLabelMenu.contains(event.target)) closeScreeningLabelMenu();
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') closeScreeningLabelMenu();
+            });
+            window.addEventListener('scroll', closeScreeningLabelMenu, true);
             document.addEventListener('mouseover', (e) => { if(e.target.classList.contains('tooltip-icon')) showTooltip(e.target, e.target.dataset.tooltip); });
             document.addEventListener('mouseout', (e) => { if(e.target.classList.contains('tooltip-icon')) hideTooltip(); });
 
             function initializeEmptyCalculator() {
                 createTooltip();
+                buildScreeningLabelMenu();
                 tableData = []; uniqueRowId = 0; for(let i=0; i<4; i++) addScan();
                 renderNoduleTabs();
             }
