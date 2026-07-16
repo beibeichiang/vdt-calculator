@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.2.3"></script>
+    <script src="./vdt-core.js?v=3.3.0"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -23,6 +23,9 @@
             --accent-red: #B42318;
             --accent-blue: #175CD3;
             --warning-color: #B54708;
+            --vdt-positive: #d9534f;
+            --vdt-indeterminate: #f39c12;
+            --vdt-shrinking: #3498db;
             --navy: #17364D;
             --bg-color: #EEF1F4;
             --card-bg: #ffffff;
@@ -176,6 +179,7 @@
             outline: none;
             transition: border-color 0.2s;
         }
+        .patient-id-container #nodule-id { width: 170px; }
         .patient-id-container input:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(23, 107, 115, 0.12);
@@ -302,6 +306,7 @@
             border-collapse: collapse;
             font-size: 0.84rem;
         }
+        #data-table { min-width: 1250px; }
 
         .data-table th {
             background-color: #F3F5F7;
@@ -379,7 +384,31 @@
         /* Column widths */
         .row-controls { width: 35px; }
         .baseline-col { width: 76px; min-width: 76px; }
-        .scan-number-col { width: 190px; min-width: 190px; font-weight: 600; color: var(--text-light); }
+        .scan-number-col { width: 255px; min-width: 255px; font-weight: 600; color: var(--text-light); }
+        .scan-label-control { display: flex; align-items: center; gap: 5px; }
+        .scan-label-control .scan-label-input { min-width: 125px; }
+        .scan-label-picker {
+            width: 96px;
+            flex: none;
+            padding: 7px 5px;
+            border: 1px solid #D5DCE3;
+            border-radius: 4px;
+            color: #40505D;
+            background: #FFFFFF;
+            font: inherit;
+            font-size: 0.76rem;
+            cursor: pointer;
+        }
+        .scan-label-picker:focus { border-color: var(--primary-color); outline: none; }
+
+        .extra-info {
+            margin-top: 3px;
+            color: var(--text-light);
+            font-size: 0.68rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .total-result-box .extra-info { font-size: 0.73rem; }
 
         .baseline-radio {
             cursor: pointer;
@@ -569,9 +598,9 @@
 
         /* Utility */
         .hidden { display: none !important; }
-        .vdt-positive { color: #B42318; }
-        .vdt-indeterminate { color: #B54708; }
-        .vdt-shrinking { color: #175CD3; }
+        .vdt-positive { color: var(--vdt-positive); }
+        .vdt-indeterminate { color: var(--vdt-indeterminate); }
+        .vdt-shrinking { color: var(--vdt-shrinking); }
         
         /* Tooltip */
         .tooltip-icon {
@@ -668,15 +697,15 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.2.3</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.0</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
             <div class="header-actions">
                 <span class="local-badge">Saved in this browser</span>
                 <button class="control-btn manage-btn" id="manage-patients-btn">Worklist</button>
-                <button class="control-btn export-btn" id="export-btn" title="Back up all patient data to CSV">Backup</button>
-                <button class="control-btn import-btn" id="import-btn" title="Restore patient data from CSV">Restore</button>
+                <button class="control-btn export-btn" id="export-btn" title="Back up all patient and nodule data to CSV">Backup</button>
+                <button class="control-btn import-btn" id="import-btn" title="Restore patient and nodule data from CSV">Restore</button>
                 <!-- Hidden file input for Import CSV -->
                 <input type="file" id="csv-file-input" accept=".csv" class="hidden">
             </div>
@@ -685,6 +714,8 @@
         <div class="patient-id-container">
             <label for="patient-id">Patient ID</label>
             <input type="text" id="patient-id" placeholder="Enter ID to save or load" autocomplete="off" spellcheck="false">
+            <label for="nodule-id">Nodule ID</label>
+            <input type="text" id="nodule-id" value="Nodule 1" placeholder="e.g. RUL 1" autocomplete="off" spellcheck="false" title="Use a separate Nodule ID for each tracked nodule in the same patient.">
             <span class="patient-id-hint">Stored locally in this browser. Use Backup for a portable copy.</span>
         </div>
 
@@ -734,7 +765,7 @@
                         <th class="scan-number-col">Screening round</th>
                         <th>Date</th>
                         <th>Solid (mm³)</th>
-                        <th>Core (mm³)</th>
+                        <th title="Solid component volume within a part-solid nodule">Solid core (mm³)</th>
                         <th>Non-solid (mm³)</th>
                         <th>VDT</th>
                         <th>VDT<sub>core</sub></th>
@@ -778,7 +809,7 @@
                 <button id="modal-close-btn" class="modal-close-btn" style="font-size: 24px; background:none; border:none; cursor:pointer;">&times;</button>
             </div>
             <div class="patient-list-controls">
-                <input type="search" id="patient-search-input" placeholder="Search Patient ID...">
+                <input type="search" id="patient-search-input" placeholder="Search Patient or Nodule ID...">
                 <div class="new-nodule-control">
                     <input type="checkbox" id="show-starred-only">
                     <label for="show-starred-only">Starred</label>
@@ -798,6 +829,7 @@
                         <tr>
                             <th style="width: 50px;">Star</th>
                             <th>Patient ID</th>
+                            <th>Nodule ID</th>
                             <th>Total VDT</th>
                             <th>Total VDT<sub>core</sub></th>
                             <th>Total VDT<sub>GGO</sub></th>
@@ -820,8 +852,27 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.2.3 - Baseline &amp; Icon</div>
+                    <div class="changelog-version">v3.3.0 - Multi-nodule Workflow</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Multiple nodules:</strong> Track separate Nodule IDs under one Patient ID and manage each one in the worklist.</li>
+                            <li><strong>Screening labels:</strong> Choose an anchor label directly without deleting generated Scan labels first.</li>
+                            <li><strong>Clearer results:</strong> Added explicit interval and change labels, including total interval and total change.</li>
+                            <li><strong>Terminology:</strong> Renamed Core volume to Solid core while retaining VDT<sub>core</sub>.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.2.4 - VDT Color Standard</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Consistent clinical colors:</strong> Restored the established red, orange, and blue VDT color codes across the table, reports, totals, and worklist.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.2.3 - Baseline &amp; Icon</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>One-click Baseline:</strong> Restored the radio selector with its full name and kept label editing frictionless.</li>
@@ -912,6 +963,7 @@
             const csvFileInput = document.getElementById('csv-file-input');
             const exportNewBtn = document.getElementById('export-new-btn');
             const patientIdInput = document.getElementById('patient-id');
+            const noduleIdInput = document.getElementById('nodule-id');
             const totalResultsContainer = document.getElementById('total-results-container');
             const predictionResultsContainer = document.getElementById('prediction-results-container');
             const sortOrderSelect = document.getElementById('sort-order');
@@ -921,6 +973,12 @@
             const chartCanvas = document.getElementById('volumeChart');
             const chartUnavailable = document.getElementById('chart-unavailable');
             const container = document.querySelector('.container');
+            const rootStyles = getComputedStyle(document.documentElement);
+            const VDT_COLORS = Object.freeze({
+                positive: rootStyles.getPropertyValue('--vdt-positive').trim(),
+                indeterminate: rootStyles.getPropertyValue('--vdt-indeterminate').trim(),
+                shrinking: rootStyles.getPropertyValue('--vdt-shrinking').trim()
+            });
             
             // Modal elements
             const managePatientsBtn = document.getElementById('manage-patients-btn');
@@ -941,6 +999,43 @@
             let uniqueRowId = 0;
             let tableData = [];
             let volumeChart = null;
+            const STORAGE_PREFIX = 'vdt-calc-';
+            const NODULE_SEPARATOR = '::nodule::';
+            const DEFAULT_NODULE_ID = 'Nodule 1';
+            const SCAN_LABEL_OPTIONS = [
+                'Baseline', 'Baseline+3m', 'Baseline+6m', 'Baseline+9m',
+                '1st Annual', '1st Annual+3m', '1st Annual+6m', '1st Annual+9m',
+                '2nd Annual', '2nd Annual+3m', '2nd Annual+6m', '2nd Annual+9m',
+                'Biennial', 'Biennial+3m', 'Biennial+6m', 'Biennial+9m'
+            ];
+
+            function normalizeNoduleId(value) {
+                return String(value || '').trim() || DEFAULT_NODULE_ID;
+            }
+
+            function getStorageKey(patientId, noduleId) {
+                const pid = String(patientId || '').trim();
+                const nid = normalizeNoduleId(noduleId);
+                return nid === DEFAULT_NODULE_ID
+                    ? `${STORAGE_PREFIX}${pid}`
+                    : `${STORAGE_PREFIX}${pid}${NODULE_SEPARATOR}${encodeURIComponent(nid)}`;
+            }
+
+            function parseStoredIdentity(key, data = {}) {
+                const raw = key.slice(STORAGE_PREFIX.length);
+                const separatorIndex = raw.indexOf(NODULE_SEPARATOR);
+                const keyPatientId = separatorIndex === -1 ? raw : raw.slice(0, separatorIndex);
+                const encodedNoduleId = separatorIndex === -1 ? '' : raw.slice(separatorIndex + NODULE_SEPARATOR.length);
+                let keyNoduleId = DEFAULT_NODULE_ID;
+                if (encodedNoduleId) {
+                    try { keyNoduleId = decodeURIComponent(encodedNoduleId); }
+                    catch (error) { keyNoduleId = encodedNoduleId; }
+                }
+                return {
+                    patientId: data.patientId || keyPatientId,
+                    noduleId: normalizeNoduleId(data.noduleId || keyNoduleId)
+                };
+            }
 
             // --- UI Helpers ---
             function createTooltip() {
@@ -985,7 +1080,13 @@
                         <input type="radio" name="baseline-group" class="baseline-radio" aria-label="Set this scan as Baseline" title="Set this scan as Baseline" ${dataRow.isBaseline ? 'checked' : ''}>
                     </td>
                     <td class="scan-number scan-number-col">
-                         <input type="text" class="scan-label-input" list="scan-label-options" value="${safeAttr(dataRow.customLabel)}" placeholder="Type one anchor label">
+                        <div class="scan-label-control">
+                            <input type="text" class="scan-label-input" list="scan-label-options" value="${safeAttr(dataRow.customLabel)}" placeholder="Screening label">
+                            <select class="scan-label-picker" aria-label="Choose screening-round anchor" title="Choose one known label; all other scan labels will be inferred from its date.">
+                                <option value="">Choose…</option>
+                                ${SCAN_LABEL_OPTIONS.map(label => `<option value="${label}">${label}</option>`).join('')}
+                            </select>
+                        </div>
                     </td>
                     <td><input type="text" class="date-input" value="${safeAttr(dataRow.date)}" placeholder="YYYY-MM-DD" inputmode="numeric"></td>
                     <td><input type="number" class="solid-input" value="${safeAttr(dataRow.solid)}" min="0" step="0.1"></td>
@@ -1076,6 +1177,7 @@
                 });
 
                 const labelInput = tr.querySelector('.scan-label-input');
+                const labelPicker = tr.querySelector('.scan-label-picker');
                 labelInput.addEventListener('input', (e) => {
                      dataRow.customLabel = e.target.value;
                 });
@@ -1112,6 +1214,13 @@
                         labelInput.blur();
                     }
                 });
+                labelPicker.addEventListener('change', () => {
+                    if (!labelPicker.value) return;
+                    labelInput.value = labelPicker.value;
+                    commitLabel();
+                    labelPicker.value = '';
+                    labelInput.focus();
+                });
                 
                 return tr;
             }
@@ -1128,7 +1237,7 @@
                 labelInp.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
                 labelInp.title = dataRow.isLabelAnchor
                     ? 'Label anchor: other scan labels are inferred from this date.'
-                    : 'Enter one standard screening label to infer the other labels.';
+                    : 'Type or choose one standard screening label to infer the other labels.';
 
                 const safeVal = (v) => (v === undefined || v === null) ? '' : v;
                 const solidInp = tr.querySelector('.solid-input');
@@ -1207,6 +1316,7 @@
 
             function clearAll() {
                 patientIdInput.value = '';
+                noduleIdInput.value = DEFAULT_NODULE_ID;
                 tableData = [];
                 tableBody.innerHTML = '';
                 newNoduleCheckbox.checked = false;
@@ -1272,7 +1382,7 @@
                             if (!r.value) return '-';
                             let html = r.html;
                             if (isMaxCalc) html += '<sub>(max)</sub>';
-                            html += `<div class="extra-info">${r.timeDiff}d | ${r.volumeChange > 0 ? '+' : ''}${r.volumeChange}%</div>`;
+                            html += `<div class="extra-info">Interval: ${r.timeDiff}d · Change: ${r.volumeChange > 0 ? '+' : ''}${r.volumeChange}%</div>`;
                             return html;
                         };
                         row.querySelector('.vdt-solid-result').innerHTML = fmt(resS);
@@ -1301,12 +1411,18 @@
                         totalG = firstGgo;
                     }
 
-                    const boxHtml = (label, res, type) => `
+                    const boxHtml = (label, res, type) => {
+                        const details = res && res.timeDiff !== null
+                            ? `<div class="extra-info">Total interval: ${res.timeDiff}d · Total change: ${res.volumeChange > 0 ? '+' : ''}${res.volumeChange}%</div>`
+                            : '';
+                        return `
                         <div class="total-result-box">
                             <div class="label">${label}</div>
                             <div class="value">${res.html || '-'}</div>
+                            ${details}
                             <button class="control-btn copy-btn" onclick="copyReport('${type}', this)">Copy Report</button>
                         </div>`;
+                    };
 
                     totalResultsContainer.innerHTML = 
                         boxHtml('Total VDT', totalS, 'solid') + 
@@ -1342,7 +1458,7 @@
                         </div>`;
                     
                     predictionResultsContainer.innerHTML = 
-                        pBox('Solid', predS) + pBox('Core', predC) + pBox('Non-solid', predG);
+                        pBox('Solid', predS) + pBox('Solid core', predC) + pBox('Non-solid', predG);
                 }
 
                 renderChart(dataForCalc, totalS, totalC, totalG);
@@ -1412,7 +1528,7 @@
 
                 const datasets = [
                     createDs('Solid', '#3A6EA5', 'solid', 'vdtSolid'),
-                    createDs('Core', '#A44A4A', 'core', 'vdtCore'),
+                    createDs('Solid core', '#A44A4A', 'core', 'vdtCore'),
                     createDs('Non-solid', '#4F7C6A', 'nonsolid', 'vdtNonsolid')
                 ];
 
@@ -1445,7 +1561,7 @@
                     };
 
                     addPredLine('Solid', '#3A6EA5', last.solid, totS);
-                    addPredLine('Core', '#A44A4A', last.core, totC);
+                    addPredLine('Solid core', '#A44A4A', last.core, totC);
                     addPredLine('Non-solid', '#4F7C6A', last.nonsolid, totG);
                 }
 
@@ -1547,13 +1663,15 @@
                 
                 let disp = res.value ? res.value + 'd' : 'N/A';
                 if(res.value === 'Stable') disp = 'Stable';
-                else if(parseFloat(res.value) > 0 && parseFloat(res.value) <= 400) disp = `<b style="color:red">${disp}</b>`;
-                else if(parseFloat(res.value) > 400 && parseFloat(res.value) <= 600) disp = `<b style="color:orange">${disp}</b>`;
-                else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:#3498db">${disp}</b>`;
+                else if(parseFloat(res.value) > 0 && parseFloat(res.value) <= 400) disp = `<b style="color:${VDT_COLORS.positive}">${disp}</b>`;
+                else if(parseFloat(res.value) > 400 && parseFloat(res.value) <= 600) disp = `<b style="color:${VDT_COLORS.indeterminate}">${disp}</b>`;
+                else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:${VDT_COLORS.shrinking}">${disp}</b>`;
                 else disp = `<b>${disp}</b>`;
                 
                 if (VDTCore.shouldShowTotalInReport(dataForCalc.length, isNewNodule)) {
-                    html += `<tr><td colspan="${numCols}" style="${cellStyle}">${lbl}: ${disp}</td></tr>`;
+                    const totalChange = res.volumeChange === null ? '' : `${res.volumeChange > 0 ? '+' : ''}${res.volumeChange}%`;
+                    const totalDetails = res.timeDiff === null ? '' : ` (total interval: ${res.timeDiff}d; total change: ${totalChange})`;
+                    html += `<tr><td colspan="${numCols}" style="${cellStyle}">${lbl}: ${disp}${totalDetails}</td></tr>`;
                 }
                 
                 // Scans Row
@@ -1598,9 +1716,9 @@
                          let dStr = r.value ? r.value + 'd' : 'N/A';
                          if(r.html && r.html.includes('15mm')) dStr = 'N/A';
                          else if(r.value === 'Stable') dStr = 'Stable';
-                         else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:red">${dStr}</b>`;
-                         else if(parseFloat(r.value) > 400 && parseFloat(r.value) <= 600) dStr = `<b style="color:orange">${dStr}</b>`;
-                         else if(parseFloat(r.value) < 0 && parseFloat(r.value) >= -400) dStr = `<b style="color:#3498db">${dStr}</b>`;
+                         else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:${VDT_COLORS.positive}">${dStr}</b>`;
+                         else if(parseFloat(r.value) > 400 && parseFloat(r.value) <= 600) dStr = `<b style="color:${VDT_COLORS.indeterminate}">${dStr}</b>`;
+                         else if(parseFloat(r.value) < 0 && parseFloat(r.value) >= -400) dStr = `<b style="color:${VDT_COLORS.shrinking}">${dStr}</b>`;
                          
                          let l = type==='solid' ? 'VDT' : (type==='core'?'VDT<sub>core</sub>':'VDT<sub>GGO</sub>');
                          if(isMax) l += '<sub>(max)</sub>';
@@ -1635,21 +1753,22 @@
             // --- Export / Import CSV Data Migration ---
 
             function exportAllToCSV() {
-                const rows = [["PatientID", "Date", "Solid", "Core", "NonSolid", "Baseline", "CustomLabel", "LabelAnchor", "LabelSource", "Notes", "IsStarred", "NewNodule"]];
+                const rows = [["PatientID", "NoduleID", "Date", "Solid", "SolidCore", "NonSolid", "Baseline", "CustomLabel", "LabelAnchor", "LabelSource", "Notes", "IsStarred", "NewNodule"]];
                 let hasData = false;
 
                 for (let i = 0; i < localStorage.length; i++) {
                     const key = localStorage.key(i);
-                    if (key.startsWith('vdt-calc-')) {
-                        const pid = key.substring(9);
+                    if (key.startsWith(STORAGE_PREFIX)) {
                         try {
                             const data = JSON.parse(localStorage.getItem(key));
                             if (data && data.tableData) {
+                                const identity = parseStoredIdentity(key, data);
                                 data.tableData.forEach(row => {
                                     if (row.date || row.solid || row.core || row.nonsolid) {
                                         hasData = true;
                                         rows.push([
-                                            pid,
+                                            identity.patientId,
+                                            identity.noduleId,
                                             row.date || '',
                                             row.solid || '',
                                             row.core || '',
@@ -1711,9 +1830,10 @@
 
                     const headers = rows[0].map(h => h.toLowerCase().trim());
                     const pidIdx = headers.findIndex(h => h.includes('patient'));
+                    const noduleIdx = headers.findIndex(h => h === 'noduleid' || h === 'nodule id' || h === 'nodule');
                     const dateIdx = headers.findIndex(h => h === 'date' || h.includes('scan date'));
-                    const solidIdx = headers.findIndex(h => h === 'solid' || h.includes('solid'));
-                    const coreIdx = headers.findIndex(h => h === 'core');
+                    const solidIdx = headers.findIndex(h => h === 'solid');
+                    const coreIdx = headers.findIndex(h => h === 'core' || h === 'solidcore' || h === 'solid core');
                     const ggoIdx = headers.findIndex(h => h === 'nonsolid' || h === 'non-solid' || h === 'ggo');
                     const baselineIdx = headers.findIndex(h => h.includes('baseline'));
                     const labelIdx = headers.findIndex(h => h.includes('label') || h.includes('scan #') || h === 'scan');
@@ -1735,8 +1855,12 @@
                         if (cols.length < 2 || !cols[dateIdx]) continue;
 
                         const pid = (pidIdx !== -1 && cols[pidIdx]) ? cols[pidIdx] : (patientIdInput.value.trim() || 'Imported_Patient');
-                        if (!importedData[pid]) {
-                            importedData[pid] = {
+                        const noduleId = normalizeNoduleId(noduleIdx !== -1 ? cols[noduleIdx] : '');
+                        const groupKey = JSON.stringify([pid, noduleId]);
+                        if (!importedData[groupKey]) {
+                            importedData[groupKey] = {
+                                patientId: pid,
+                                noduleId,
                                 tableData: [],
                                 notes: notesIdx !== -1 ? cols[notesIdx] : '',
                                 isStarred: starIdx !== -1 ? cols[starIdx] === 'true' : false,
@@ -1744,7 +1868,7 @@
                             };
                         }
 
-                        importedData[pid].tableData.push({
+                        importedData[groupKey].tableData.push({
                             id: Date.now() + Math.random(), 
                             date: cols[dateIdx],
                             solid: solidIdx !== -1 ? cols[solidIdx] : '',
@@ -1758,34 +1882,41 @@
                     }
 
                     let importCount = 0;
-                    Object.keys(importedData).forEach(pid => {
+                    Object.keys(importedData).forEach(groupKey => {
+                        const importedRecord = importedData[groupKey];
+                        const pid = importedRecord.patientId;
+                        const noduleId = importedRecord.noduleId;
+                        const storageKey = getStorageKey(pid, noduleId);
                         let currentId = 0;
-                        const newTableData = importedData[pid].tableData.map(d => ({...d, id: currentId++}));
+                        const newTableData = importedRecord.tableData.map(d => ({...d, id: currentId++}));
                         
                         let existing = {};
-                        const str = localStorage.getItem(`vdt-calc-${pid}`);
+                        const str = localStorage.getItem(storageKey);
                         if (str) existing = JSON.parse(str);
 
                         const dataToSave = {
                             ...existing,
+                            patientId: pid,
+                            noduleId,
                             tableData: newTableData,
-                            notes: importedData[pid].notes || existing.notes || '',
-                            isStarred: importedData[pid].isStarred !== undefined ? importedData[pid].isStarred : (existing.isStarred || false),
-                            isNewNodule: importedData[pid].isNewNodule !== undefined ? importedData[pid].isNewNodule : (existing.isNewNodule || false),
+                            notes: importedRecord.notes || existing.notes || '',
+                            isStarred: importedRecord.isStarred !== undefined ? importedRecord.isStarred : (existing.isStarred || false),
+                            isNewNodule: importedRecord.isNewNodule !== undefined ? importedRecord.isNewNodule : (existing.isNewNodule || false),
                             isLogScale: existing.isLogScale || false,
                             isPrediction: existing.isPrediction || false,
                         };
-                        localStorage.setItem(`vdt-calc-${pid}`, JSON.stringify(dataToSave));
+                        localStorage.setItem(storageKey, JSON.stringify(dataToSave));
                         importCount++;
                     });
 
-                    alert(`成功导入/更新了 ${importCount} 个病人的数据。 (Successfully imported ${importCount} patients.)`);
+                    alert(`成功导入/更新了 ${importCount} 个结节记录。 (Successfully imported ${importCount} nodule records.)`);
                     
-                    const currentPid = patientIdInput.value.trim();
-                    if (currentPid && importedData[currentPid]) {
-                        loadData(currentPid);
+                    const currentGroupKey = JSON.stringify([patientIdInput.value.trim(), normalizeNoduleId(noduleIdInput.value)]);
+                    if (patientIdInput.value.trim() && importedData[currentGroupKey]) {
+                        loadData(patientIdInput.value.trim(), noduleIdInput.value);
                     } else if (importCount === 1) {
-                        loadData(Object.keys(importedData)[0]);
+                        const onlyRecord = importedData[Object.keys(importedData)[0]];
+                        loadData(onlyRecord.patientId, onlyRecord.noduleId);
                     } else {
                         openPatientManager();
                     }
@@ -1806,19 +1937,19 @@
                 let allPatients = [];
                 for (let i = 0; i < localStorage.length; i++) {
                     const key = localStorage.key(i);
-                    if (key.startsWith('vdt-calc-')) {
-                        const patientId = key.substring(9);
+                    if (key.startsWith(STORAGE_PREFIX)) {
                         try {
                             const data = JSON.parse(localStorage.getItem(key));
                             if (data && data.tableData) {
+                                const identity = parseStoredIdentity(key, data);
                                 const totals = calculateTotalVdtForPatientData(data);
-                                allPatients.push({ id: patientId, ...data, totals });
+                                allPatients.push({ ...data, id: identity.patientId, noduleId: identity.noduleId, storageKey: key, totals });
                             }
                         } catch (e) {}
                     }
                 }
                 const filteredPatients = allPatients.filter(p => {
-                    const matchesSearch = p.id.toLowerCase().includes(searchTerm);
+                    const matchesSearch = `${p.id} ${p.noduleId}`.toLowerCase().includes(searchTerm);
                     const matchesStar = !showStarredOnly || p.isStarred;
                     const matchesPositive = !showPositiveOnly || p.totals.isPositive;
                     const matchesNewNodule = !showNewNoduleOnly || p.isNewNodule;
@@ -1826,7 +1957,7 @@
                 });
 
                 if (filteredPatients.length === 0) {
-                    patientListBody.innerHTML = `<tr><td colspan="7">No patient records found.</td></tr>`;
+                    patientListBody.innerHTML = `<tr><td colspan="8">No patient or nodule records found.</td></tr>`;
                 }
                 filteredPatients.forEach(patient => {
                     const tr = document.createElement('tr');
@@ -1837,7 +1968,7 @@
                     starButton.className = `star-btn ${patient.isStarred ? 'starred' : ''}`;
                     starButton.textContent = starChar;
                     starButton.title = patient.isStarred ? 'Remove star' : 'Add star';
-                    starButton.addEventListener('click', () => toggleStar(patient.id));
+                    starButton.addEventListener('click', () => toggleStar(patient.storageKey));
                     starCell.appendChild(starButton);
                     tr.appendChild(starCell);
 
@@ -1853,6 +1984,7 @@
                     };
 
                     appendTextCell(patient.id);
+                    appendTextCell(patient.noduleId);
                     appendResultCell(patient.totals.solidVdtHtml);
                     appendResultCell(patient.totals.coreVdtHtml);
                     appendResultCell(patient.totals.ggoVdtHtml);
@@ -1861,7 +1993,7 @@
                     const notes = document.createElement('textarea');
                     notes.className = 'notes-area';
                     notes.value = patient.notes || '';
-                    notes.addEventListener('blur', () => saveNote(patient.id, notes.value));
+                    notes.addEventListener('blur', () => saveNote(patient.storageKey, notes.value));
                     notesCell.appendChild(notes);
                     tr.appendChild(notesCell);
 
@@ -1870,11 +2002,11 @@
                     const loadButton = document.createElement('button');
                     loadButton.className = 'control-btn add-row-btn';
                     loadButton.textContent = 'Load';
-                    loadButton.addEventListener('click', () => loadFromManager(patient.id));
+                    loadButton.addEventListener('click', () => loadFromManager(patient.id, patient.noduleId));
                     const deleteButton = document.createElement('button');
                     deleteButton.className = 'control-btn remove-row-btn';
                     deleteButton.textContent = 'Del';
-                    deleteButton.addEventListener('click', () => deletePatient(patient.id));
+                    deleteButton.addEventListener('click', () => deletePatient(patient.storageKey, patient.id, patient.noduleId));
                     actionsCell.append(loadButton, deleteButton);
                     tr.appendChild(actionsCell);
                     patientListBody.appendChild(tr);
@@ -1904,9 +2036,9 @@
                     let styledHtml = display;
                     const vdtNum = parseFloat(result.value);
                     if (result.value && result.value !== 'Stable') {
-                        if (vdtNum > 0 && vdtNum <= 400) styledHtml = `<strong style="color: #d9534f;">${display}</strong>`;
-                        else if (vdtNum > 400 && vdtNum <= 600) styledHtml = `<strong style="color: #f0ad4e;">${display}</strong>`;
-                        else if (vdtNum < 0 && vdtNum >= -400) styledHtml = `<strong style="color: #175CD3;">${display}</strong>`;
+                        if (vdtNum > 0 && vdtNum <= 400) styledHtml = `<strong style="color: ${VDT_COLORS.positive};">${display}</strong>`;
+                        else if (vdtNum > 400 && vdtNum <= 600) styledHtml = `<strong style="color: ${VDT_COLORS.indeterminate};">${display}</strong>`;
+                        else if (vdtNum < 0 && vdtNum >= -400) styledHtml = `<strong style="color: ${VDT_COLORS.shrinking};">${display}</strong>`;
                     }
                     return { html: styledHtml, numeric: vdtNum };
                 }
@@ -1916,27 +2048,27 @@
                 const isPositive = (styledSolid.numeric > 0 && styledSolid.numeric <= 400) || (styledCore.numeric > 0 && styledCore.numeric <= 400) || (styledGgo.numeric > 0 && styledGgo.numeric <= 400);
                 return { solidVdtHtml: styledSolid.html, coreVdtHtml: styledCore.html, ggoVdtHtml: styledGgo.html, isPositive: isPositive };
             }
-            function updateStoredPatient(pid, updater) {
-                const str = localStorage.getItem(`vdt-calc-${pid}`);
+            function updateStoredPatient(storageKey, updater) {
+                const str = localStorage.getItem(storageKey);
                 if (!str) return;
                 try {
                     const data = JSON.parse(str);
                     updater(data);
-                    localStorage.setItem(`vdt-calc-${pid}`, JSON.stringify(data));
+                    localStorage.setItem(storageKey, JSON.stringify(data));
                 } catch (error) {
-                    alert(`Unable to update ${pid}: stored data is invalid.`);
+                    alert('Unable to update this nodule: stored data is invalid.');
                 }
             }
 
-            function toggleStar(pid) {
-                updateStoredPatient(pid, data => { data.isStarred = !data.isStarred; });
+            function toggleStar(storageKey) {
+                updateStoredPatient(storageKey, data => { data.isStarred = !data.isStarred; });
                 openPatientManager();
             }
-            function saveNote(pid, text) { updateStoredPatient(pid, data => { data.notes = text; }); }
-            function loadFromManager(pid) { loadData(pid); patientManagerModal.classList.add('hidden'); }
-            function deletePatient(pid) {
-                if (confirm(`Delete patient record “${pid}”? This cannot be undone.`)) {
-                    localStorage.removeItem(`vdt-calc-${pid}`);
+            function saveNote(storageKey, text) { updateStoredPatient(storageKey, data => { data.notes = text; }); }
+            function loadFromManager(pid, noduleId) { loadData(pid, noduleId); patientManagerModal.classList.add('hidden'); }
+            function deletePatient(storageKey, pid, noduleId) {
+                if (confirm(`Delete “${pid} · ${noduleId}”? This cannot be undone.`)) {
+                    localStorage.removeItem(storageKey);
                     openPatientManager();
                 }
             }
@@ -1944,15 +2076,18 @@
             function saveData() {
                 const pid = patientIdInput.value.trim();
                 if (!pid) { alert('Please enter a Patient ID.'); return false; }
+                const noduleId = normalizeNoduleId(noduleIdInput.value);
+                noduleIdInput.value = noduleId;
+                const storageKey = getStorageKey(pid, noduleId);
                 let existing = {};
-                const str = localStorage.getItem(`vdt-calc-${pid}`);
+                const str = localStorage.getItem(storageKey);
                 if (str) {
                     try { existing = JSON.parse(str); }
                     catch (error) { alert('The existing record is invalid and was not overwritten.'); return false; }
                 }
-                const data = { ...existing, tableData: tableData, isNewNodule: newNoduleCheckbox.checked, isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
+                const data = { ...existing, patientId: pid, noduleId, tableData: tableData, isNewNodule: newNoduleCheckbox.checked, isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
                 try {
-                    localStorage.setItem(`vdt-calc-${pid}`, JSON.stringify(data));
+                    localStorage.setItem(storageKey, JSON.stringify(data));
                 } catch (error) {
                     alert('Unable to save this record. Browser storage may be full or unavailable.');
                     return false;
@@ -1960,15 +2095,17 @@
                 const orig = saveBtn.textContent; saveBtn.textContent = 'Saved!'; setTimeout(() => saveBtn.textContent = orig, 2000);
                 return true;
             }
-            function loadData(pid) {
+            function loadData(pid, noduleId) {
                 const id = pid || patientIdInput.value.trim();
                 if(!id) return;
-                const str = localStorage.getItem(`vdt-calc-${id}`);
+                const targetNoduleId = normalizeNoduleId(noduleId || noduleIdInput.value);
+                const str = localStorage.getItem(getStorageKey(id, targetNoduleId));
                 if(str) {
                     let data;
                     try { data = JSON.parse(str); }
                     catch (error) { alert(`Unable to load ${id}: stored data is invalid.`); return; }
                     patientIdInput.value = id;
+                    noduleIdInput.value = normalizeNoduleId(data.noduleId || targetNoduleId);
                     tableData = data.tableData || [];
                     newNoduleCheckbox.checked = data.isNewNodule || false;
                     logScaleCheckbox.checked = data.isLogScale || false;
@@ -1992,6 +2129,8 @@
             
             patientIdInput.addEventListener('blur', () => loadData());
             patientIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadData(); });
+            noduleIdInput.addEventListener('change', () => loadData());
+            noduleIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadData(); });
             sortOrderSelect.addEventListener('change', renderTable);
             newNoduleCheckbox.addEventListener('change', calculateAll);
             logScaleCheckbox.addEventListener('change', calculateAll);

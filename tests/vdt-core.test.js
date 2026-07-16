@@ -35,6 +35,12 @@ test('VDT calculation follows exponential volume growth', () => {
     assert.equal(result.volumeChange, '100.0');
 });
 
+test('560-day VDT remains in the established indeterminate category', () => {
+    const result = calculateSingleVDT(200, 100, 560);
+    assert.equal(result.value, '560');
+    assert.match(result.html, /class="vdt-indeterminate"/);
+});
+
 test('VDT calculation reports stable and shrinking nodules', () => {
     assert.equal(calculateSingleVDT(100, 100, 90).value, 'Stable');
     assert.equal(calculateSingleVDT(50, 100, 100).value, '-100');
