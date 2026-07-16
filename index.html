@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.0"></script>
+    <script src="./vdt-core.js?v=3.3.3"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -168,6 +168,7 @@
             font-size: 0.82rem;
             font-weight: 600;
             color: var(--text-main);
+            white-space: nowrap;
         }
 
         .patient-id-container input {
@@ -179,7 +180,7 @@
             outline: none;
             transition: border-color 0.2s;
         }
-        .patient-id-container #nodule-id { width: 170px; }
+        .patient-id-container #nodule-location { width: 160px; }
         .patient-id-container input:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(23, 107, 115, 0.12);
@@ -190,6 +191,49 @@
             color: var(--text-light);
             font-size: 0.78rem;
         }
+
+        .nodule-switcher {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 34px;
+        }
+        .nodule-tabs { display: flex; align-items: center; gap: 6px; }
+        .nodule-tab {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border: 1px solid #BFC9D2;
+            border-radius: 50%;
+            background: #FFFFFF;
+            color: #53616E;
+            font-size: 0.78rem;
+            font-weight: 650;
+            cursor: pointer;
+        }
+        .nodule-tab:hover { border-color: #7F999F; background: #F4F8F8; }
+        .nodule-tab.active {
+            color: #FFFFFF;
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(23, 107, 115, 0.12);
+        }
+        .add-nodule-btn { height: 32px; min-width: 104px; padding: 5px 10px; white-space: nowrap; flex: none; }
+        .delete-nodule-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border: 1px solid #E2BBB7;
+            border-radius: 50%;
+            background: #FFF8F7;
+            color: var(--accent-red);
+            font-size: 19px;
+            line-height: 1;
+            cursor: pointer;
+            flex: none;
+        }
+        .delete-nodule-btn:hover:not(:disabled) { background: #FEECEB; border-color: #D8948E; }
+        .delete-nodule-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
         /* --- Controls & Buttons --- */
         .table-controls {
@@ -383,23 +427,79 @@
         
         /* Column widths */
         .row-controls { width: 35px; }
-        .baseline-col { width: 76px; min-width: 76px; }
-        .scan-number-col { width: 255px; min-width: 255px; font-weight: 600; color: var(--text-light); }
-        .scan-label-control { display: flex; align-items: center; gap: 5px; }
-        .scan-label-control .scan-label-input { min-width: 125px; }
-        .scan-label-picker {
-            width: 96px;
-            flex: none;
-            padding: 7px 5px;
+        .scan-number-col { width: 185px; min-width: 185px; font-weight: 600; color: var(--text-light); }
+        .scan-label-trigger {
+            width: 100%;
+            padding: 7px 8px;
             border: 1px solid #D5DCE3;
             border-radius: 4px;
             color: #40505D;
             background: #FFFFFF;
             font: inherit;
-            font-size: 0.76rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: left;
             cursor: pointer;
         }
-        .scan-label-picker:focus { border-color: var(--primary-color); outline: none; }
+        .scan-label-trigger::after { content: '⌄'; float: right; color: #7B8792; }
+        .scan-label-trigger:focus { border-color: var(--primary-color); outline: none; }
+        .scan-label-trigger.is-anchor {
+            border-color: var(--primary-color);
+            background: #EDF6F6;
+            box-shadow: inset 3px 0 0 var(--primary-color);
+        }
+
+        .screening-label-menu {
+            display: none;
+            position: fixed;
+            z-index: 5000;
+            min-width: 158px;
+            padding: 5px;
+            border: 1px solid #CBD3DB;
+            border-radius: 8px;
+            background: #FFFFFF;
+            box-shadow: 0 12px 30px rgba(23, 54, 77, 0.18);
+        }
+        .screening-label-menu.open { display: block; }
+        .screening-menu-stage { position: relative; }
+        .screening-menu-primary, .screening-menu-secondary {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            min-height: 34px;
+            padding: 7px 10px;
+            border: none;
+            border-radius: 5px;
+            color: #33424F;
+            background: transparent;
+            font: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: left;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .screening-menu-primary::after { content: '›'; margin-left: auto; color: #7B8792; font-size: 1rem; }
+        .screening-menu-primary:hover, .screening-menu-primary:focus,
+        .screening-menu-secondary:hover, .screening-menu-secondary:focus {
+            color: var(--primary-color);
+            background: #EDF6F6;
+            outline: none;
+        }
+        .screening-menu-submenu {
+            display: none;
+            position: absolute;
+            top: -5px;
+            left: calc(100% - 2px);
+            min-width: 170px;
+            padding: 5px;
+            border: 1px solid #CBD3DB;
+            border-radius: 8px;
+            background: #FFFFFF;
+            box-shadow: 0 12px 30px rgba(23, 54, 77, 0.18);
+        }
+        .screening-menu-stage:hover > .screening-menu-submenu,
+        .screening-menu-stage:focus-within > .screening-menu-submenu { display: block; }
 
         .extra-info {
             margin-top: 3px;
@@ -409,13 +509,6 @@
             white-space: nowrap;
         }
         .total-result-box .extra-info { font-size: 0.73rem; }
-
-        .baseline-radio {
-            cursor: pointer;
-            width: 16px;
-            height: 16px;
-            accent-color: var(--primary-color);
-        }
 
         /* Delete Controls */
         .delete-row-btn {
@@ -656,18 +749,6 @@
             padding-left: 20px;
         }
         
-        .scan-label-input {
-            font-weight: 600;
-            color: #40505D;
-        }
-        .scan-label-input:focus {
-            color: var(--primary-color);
-        }
-        .scan-label-input.is-anchor {
-            border-color: var(--primary-color);
-            background: #EDF6F6;
-            box-shadow: inset 3px 0 0 var(--primary-color);
-        }
         input[type="checkbox"] {
             accent-color: var(--primary-color);
         }
@@ -697,7 +778,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.0</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.3</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -714,8 +795,14 @@
         <div class="patient-id-container">
             <label for="patient-id">Patient ID</label>
             <input type="text" id="patient-id" placeholder="Enter ID to save or load" autocomplete="off" spellcheck="false">
-            <label for="nodule-id">Nodule ID</label>
-            <input type="text" id="nodule-id" value="Nodule 1" placeholder="e.g. RUL 1" autocomplete="off" spellcheck="false" title="Use a separate Nodule ID for each tracked nodule in the same patient.">
+            <label>Nodules</label>
+            <div class="nodule-switcher" aria-label="Nodules for this patient">
+                <div class="nodule-tabs" id="nodule-tabs"></div>
+            </div>
+            <label for="nodule-location">Location <span style="font-weight: 400; color: var(--text-light);">(optional)</span></label>
+            <input type="text" id="nodule-location" placeholder="e.g. RUL #133" autocomplete="off" spellcheck="false">
+            <button type="button" class="control-btn add-nodule-btn" id="add-nodule-btn">+ Add nodule</button>
+            <button type="button" class="delete-nodule-btn" id="delete-nodule-btn" aria-label="Delete current nodule" title="Delete current nodule">&times;</button>
             <span class="patient-id-hint">Stored locally in this browser. Use Backup for a portable copy.</span>
         </div>
 
@@ -761,7 +848,6 @@
                 <thead>
                     <tr>
                         <th class="row-controls"></th>
-                        <th class="baseline-col" title="Select the baseline scan">Baseline</th>
                         <th class="scan-number-col">Screening round</th>
                         <th>Date</th>
                         <th>Solid (mm³)</th>
@@ -778,12 +864,7 @@
             </table>
         </div>
 
-        <datalist id="scan-label-options">
-            <option value="Baseline"><option value="Baseline+3m"><option value="Baseline+6m"><option value="Baseline+9m">
-            <option value="1st Annual"><option value="1st Annual+3m"><option value="1st Annual+6m"><option value="1st Annual+9m">
-            <option value="2nd Annual"><option value="2nd Annual+3m"><option value="2nd Annual+6m"><option value="2nd Annual+9m">
-            <option value="Biennial"><option value="Biennial+3m"><option value="Biennial+6m"><option value="Biennial+9m">
-        </datalist>
+        <div id="screening-label-menu" class="screening-label-menu" role="menu" aria-label="Choose screening round"></div>
 
         <div class="total-results-container" id="total-results-container">
             <!-- Totals injected via JS -->
@@ -830,6 +911,7 @@
                             <th style="width: 50px;">Star</th>
                             <th>Patient ID</th>
                             <th>Nodule ID</th>
+                            <th>Location</th>
                             <th>Total VDT</th>
                             <th>Total VDT<sub>core</sub></th>
                             <th>Total VDT<sub>GGO</sub></th>
@@ -852,8 +934,37 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.3.0 - Multi-nodule Workflow</div>
+                    <div class="changelog-version">v3.3.3 - Compact Two-scan Report</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Two-scan layout:</strong> When only one VDT interval exists, Copy Report places the VDT directly between the two volumes instead of adding a separate row.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.2 - Hierarchical Screening Menu</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Two-level labels:</strong> Choose a routine screening round directly or hover to select its +3m, +6m, or +9m repeat.</li>
+                            <li><strong>Simpler table:</strong> Removed the redundant Baseline radio column.</li>
+                            <li><strong>Nodule controls:</strong> Location is explicitly optional, and the active nodule can be deleted when another nodule remains.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.1 - Nodule Switching</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>One clean label control:</strong> Replaced the duplicate label inputs with a single screening-round selector.</li>
+                            <li><strong>Compact VDT context:</strong> Shows days and volume change without repetitive labels.</li>
+                            <li><strong>Fast multi-nodule entry:</strong> Switch between #1, #2, and later nodules; Add nodule keeps scan dates and clears measurements.</li>
+                            <li><strong>Nodule location:</strong> Save identifiers such as RUL #133 and see them in the Worklist.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.0 - Multi-nodule Workflow</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Multiple nodules:</strong> Track separate Nodule IDs under one Patient ID and manage each one in the worklist.</li>
@@ -963,7 +1074,11 @@
             const csvFileInput = document.getElementById('csv-file-input');
             const exportNewBtn = document.getElementById('export-new-btn');
             const patientIdInput = document.getElementById('patient-id');
-            const noduleIdInput = document.getElementById('nodule-id');
+            const noduleTabs = document.getElementById('nodule-tabs');
+            const addNoduleBtn = document.getElementById('add-nodule-btn');
+            const deleteNoduleBtn = document.getElementById('delete-nodule-btn');
+            const noduleLocationInput = document.getElementById('nodule-location');
+            const screeningLabelMenu = document.getElementById('screening-label-menu');
             const totalResultsContainer = document.getElementById('total-results-container');
             const predictionResultsContainer = document.getElementById('prediction-results-container');
             const sortOrderSelect = document.getElementById('sort-order');
@@ -999,16 +1114,12 @@
             let uniqueRowId = 0;
             let tableData = [];
             let volumeChart = null;
+            let currentNoduleId = 'Nodule 1';
+            let activeLabelRow = null;
+            let activeLabelTrigger = null;
             const STORAGE_PREFIX = 'vdt-calc-';
             const NODULE_SEPARATOR = '::nodule::';
             const DEFAULT_NODULE_ID = 'Nodule 1';
-            const SCAN_LABEL_OPTIONS = [
-                'Baseline', 'Baseline+3m', 'Baseline+6m', 'Baseline+9m',
-                '1st Annual', '1st Annual+3m', '1st Annual+6m', '1st Annual+9m',
-                '2nd Annual', '2nd Annual+3m', '2nd Annual+6m', '2nd Annual+9m',
-                'Biennial', 'Biennial+3m', 'Biennial+6m', 'Biennial+9m'
-            ];
-
             function normalizeNoduleId(value) {
                 return String(value || '').trim() || DEFAULT_NODULE_ID;
             }
@@ -1035,6 +1146,184 @@
                     patientId: data.patientId || keyPatientId,
                     noduleId: normalizeNoduleId(data.noduleId || keyNoduleId)
                 };
+            }
+
+            function getPatientNodules(patientId) {
+                const pid = String(patientId || '').trim();
+                const found = [];
+                if (!pid) return [DEFAULT_NODULE_ID];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (!key || !key.startsWith(STORAGE_PREFIX)) continue;
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        const identity = parseStoredIdentity(key, data || {});
+                        if (identity.patientId === pid && !found.includes(identity.noduleId)) found.push(identity.noduleId);
+                    } catch (error) {}
+                }
+                if (!found.length) found.push(DEFAULT_NODULE_ID);
+                return found.sort((a, b) => {
+                    const aNum = Number(a.match(/^Nodule (\d+)$/i)?.[1]);
+                    const bNum = Number(b.match(/^Nodule (\d+)$/i)?.[1]);
+                    if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum;
+                    if (Number.isFinite(aNum)) return -1;
+                    if (Number.isFinite(bNum)) return 1;
+                    return a.localeCompare(b);
+                });
+            }
+
+            function noduleDisplayLabel(noduleId, fallbackIndex = null) {
+                const match = normalizeNoduleId(noduleId).match(/^Nodule (\d+)$/i);
+                if (match) return `#${match[1]}`;
+                return fallbackIndex === null ? noduleId : `#${fallbackIndex + 1}`;
+            }
+
+            function renderNoduleTabs() {
+                const ids = getPatientNodules(patientIdInput.value);
+                if (!ids.includes(currentNoduleId)) ids.push(currentNoduleId);
+                noduleTabs.innerHTML = '';
+                ids.forEach((noduleId, index) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = `nodule-tab ${noduleId === currentNoduleId ? 'active' : ''}`;
+                    button.textContent = noduleDisplayLabel(noduleId, index);
+                    let location = '';
+                    try {
+                        const stored = JSON.parse(localStorage.getItem(getStorageKey(patientIdInput.value, noduleId)) || 'null');
+                        location = noduleId === currentNoduleId ? noduleLocationInput.value.trim() : (stored?.noduleLocation || '');
+                    } catch (error) {}
+                    button.title = `Show ${noduleId}${location ? ` · ${location}` : ''}`;
+                    button.setAttribute('aria-pressed', String(noduleId === currentNoduleId));
+                    button.addEventListener('click', () => switchNodule(noduleId));
+                    noduleTabs.appendChild(button);
+                });
+                deleteNoduleBtn.disabled = ids.length <= 1;
+                deleteNoduleBtn.title = ids.length <= 1
+                    ? 'At least one nodule is required'
+                    : `Delete ${noduleDisplayLabel(currentNoduleId)}`;
+            }
+
+            function switchNodule(noduleId) {
+                if (noduleId === currentNoduleId) return;
+                const pid = patientIdInput.value.trim();
+                if (!pid) return;
+                saveData({ silent: true });
+                loadData(pid, noduleId);
+            }
+
+            function addNodule() {
+                const pid = patientIdInput.value.trim();
+                if (!pid) {
+                    alert('Please enter a Patient ID before adding another nodule.');
+                    patientIdInput.focus();
+                    return;
+                }
+                saveData({ silent: true });
+                const ids = getPatientNodules(pid);
+                const usedNumbers = ids
+                    .map(id => Number(id.match(/^Nodule (\d+)$/i)?.[1]))
+                    .filter(Number.isFinite);
+                const nextNumber = usedNumbers.length ? Math.max(...usedNumbers) + 1 : 1;
+                currentNoduleId = `Nodule ${nextNumber}`;
+                noduleLocationInput.value = '';
+                tableData = tableData.map(row => ({
+                    ...row,
+                    solid: '',
+                    core: '',
+                    nonsolid: ''
+                }));
+                newNoduleCheckbox.checked = false;
+                tableBody.innerHTML = '';
+                renderTable();
+                saveData({ silent: true });
+                renderNoduleTabs();
+                noduleLocationInput.focus();
+            }
+
+            function deleteCurrentNodule() {
+                const pid = patientIdInput.value.trim();
+                const ids = getPatientNodules(pid);
+                if (!pid || ids.length <= 1) return;
+                const label = noduleDisplayLabel(currentNoduleId);
+                if (!confirm(`Delete ${label}${noduleLocationInput.value.trim() ? ` · ${noduleLocationInput.value.trim()}` : ''}? This cannot be undone.`)) return;
+                localStorage.removeItem(getStorageKey(pid, currentNoduleId));
+                let remaining = getPatientNodules(pid);
+                if (remaining.every(id => /^Nodule \d+$/i.test(id))) {
+                    const records = remaining.map(id => ({
+                        oldId: id,
+                        data: JSON.parse(localStorage.getItem(getStorageKey(pid, id)))
+                    }));
+                    records.forEach(record => localStorage.removeItem(getStorageKey(pid, record.oldId)));
+                    records.forEach((record, index) => {
+                        const newId = `Nodule ${index + 1}`;
+                        record.data.noduleId = newId;
+                        localStorage.setItem(getStorageKey(pid, newId), JSON.stringify(record.data));
+                    });
+                    remaining = records.map((record, index) => `Nodule ${index + 1}`);
+                }
+                currentNoduleId = remaining[0];
+                loadData(pid, currentNoduleId);
+            }
+
+            function updateLabelTrigger(trigger, dataRow) {
+                trigger.textContent = dataRow.customLabel || 'Select label';
+                trigger.setAttribute('aria-expanded', String(trigger === activeLabelTrigger && screeningLabelMenu.classList.contains('open')));
+                trigger.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
+                trigger.title = dataRow.isLabelAnchor
+                    ? 'Label anchor: other scan labels are inferred from this date.'
+                    : 'Choose one screening label; other scan labels will be inferred automatically.';
+            }
+
+            function setLabelAnchor(dataRow, value) {
+                const parsed = VDTCore.parseScanLabel(value);
+                if (!parsed) return;
+                tableData.forEach(row => {
+                    row.isBaseline = false;
+                    if (row.id !== dataRow.id && row.isLabelAnchor) {
+                        row.isLabelAnchor = false;
+                        if (VDTCore.parseScanLabel(row.customLabel)) row.labelSource = 'auto';
+                    }
+                });
+                dataRow.customLabel = parsed.canonical;
+                dataRow.isLabelAnchor = true;
+                dataRow.labelSource = 'manual';
+                updateScanLabels();
+                calculateAll();
+            }
+
+            function buildScreeningLabelMenu() {
+                const stages = ['Baseline', '1st Annual', '2nd Annual', 'Biennial'];
+                screeningLabelMenu.innerHTML = stages.map(stage => `
+                    <div class="screening-menu-stage">
+                        <button type="button" class="screening-menu-primary" role="menuitem" data-label="${stage}">${stage}</button>
+                        <div class="screening-menu-submenu" role="menu" aria-label="${stage} repeat scans">
+                            ${[3, 6, 9].map(month => `<button type="button" class="screening-menu-secondary" role="menuitem" data-label="${stage}+${month}m">${stage}+${month}m</button>`).join('')}
+                        </div>
+                    </div>`).join('');
+            }
+
+            function closeScreeningLabelMenu() {
+                if (activeLabelTrigger) activeLabelTrigger.setAttribute('aria-expanded', 'false');
+                screeningLabelMenu.classList.remove('open');
+                activeLabelRow = null;
+                activeLabelTrigger = null;
+            }
+
+            function openScreeningLabelMenu(dataRow, trigger) {
+                if (activeLabelTrigger === trigger && screeningLabelMenu.classList.contains('open')) {
+                    closeScreeningLabelMenu();
+                    return;
+                }
+                activeLabelRow = dataRow;
+                activeLabelTrigger = trigger;
+                trigger.setAttribute('aria-expanded', 'true');
+                const rect = trigger.getBoundingClientRect();
+                const estimatedWidth = 340;
+                const left = Math.max(8, Math.min(rect.left, window.innerWidth - estimatedWidth - 8));
+                const top = rect.bottom + 170 < window.innerHeight ? rect.bottom + 4 : Math.max(8, rect.top - 164);
+                screeningLabelMenu.style.left = `${left}px`;
+                screeningLabelMenu.style.top = `${top}px`;
+                screeningLabelMenu.classList.add('open');
             }
 
             // --- UI Helpers ---
@@ -1076,17 +1365,8 @@
                     <td class="row-controls">
                         <button class="delete-row-btn" title="Delete">&times;</button>
                     </td>
-                    <td>
-                        <input type="radio" name="baseline-group" class="baseline-radio" aria-label="Set this scan as Baseline" title="Set this scan as Baseline" ${dataRow.isBaseline ? 'checked' : ''}>
-                    </td>
                     <td class="scan-number scan-number-col">
-                        <div class="scan-label-control">
-                            <input type="text" class="scan-label-input" list="scan-label-options" value="${safeAttr(dataRow.customLabel)}" placeholder="Screening label">
-                            <select class="scan-label-picker" aria-label="Choose screening-round anchor" title="Choose one known label; all other scan labels will be inferred from its date.">
-                                <option value="">Choose…</option>
-                                ${SCAN_LABEL_OPTIONS.map(label => `<option value="${label}">${label}</option>`).join('')}
-                            </select>
-                        </div>
+                        <button type="button" class="scan-label-trigger" aria-haspopup="menu" aria-label="Screening round"></button>
                     </td>
                     <td><input type="text" class="date-input" value="${safeAttr(dataRow.date)}" placeholder="YYYY-MM-DD" inputmode="numeric"></td>
                     <td><input type="number" class="solid-input" value="${safeAttr(dataRow.solid)}" min="0" step="0.1"></td>
@@ -1165,61 +1445,11 @@
 
                 tr.querySelector('.delete-row-btn').addEventListener('click', () => deleteRow(dataRow.id));
 
-                const radio = tr.querySelector('.baseline-radio');
-                radio.addEventListener('click', (e) => {
-                    if (dataRow.isBaseline) {
-                        e.preventDefault();
-                        dataRow.isBaseline = false;
-                        setTimeout(() => renderTable(), 0);
-                    } else {
-                        setBaseline(dataRow.id);
-                    }
-                });
-
-                const labelInput = tr.querySelector('.scan-label-input');
-                const labelPicker = tr.querySelector('.scan-label-picker');
-                labelInput.addEventListener('input', (e) => {
-                     dataRow.customLabel = e.target.value;
-                });
-                const commitLabel = () => {
-                    const value = labelInput.value.trim();
-                    const parsed = VDTCore.parseScanLabel(value);
-                    if (parsed) {
-                        tableData.forEach(row => {
-                            if (row.id !== dataRow.id && row.isLabelAnchor) {
-                                row.isLabelAnchor = false;
-                                if (VDTCore.parseScanLabel(row.customLabel)) row.labelSource = 'auto';
-                            }
-                        });
-                        dataRow.customLabel = parsed.canonical;
-                        dataRow.isLabelAnchor = true;
-                        dataRow.labelSource = 'manual';
-                    } else {
-                        dataRow.isLabelAnchor = false;
-                        dataRow.labelSource = value ? 'manual' : 'auto';
-                        dataRow.customLabel = value;
-                    }
-                    updateScanLabels();
-                    calculateAll();
-                };
-                labelInput.addEventListener('change', commitLabel);
-                labelInput.addEventListener('blur', commitLabel);
-                labelInput.addEventListener('focus', () => {
-                    if (dataRow.labelSource !== 'manual') labelInput.select();
-                });
-                labelInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        commitLabel();
-                        labelInput.blur();
-                    }
-                });
-                labelPicker.addEventListener('change', () => {
-                    if (!labelPicker.value) return;
-                    labelInput.value = labelPicker.value;
-                    commitLabel();
-                    labelPicker.value = '';
-                    labelInput.focus();
+                const labelTrigger = tr.querySelector('.scan-label-trigger');
+                updateLabelTrigger(labelTrigger, dataRow);
+                labelTrigger.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    openScreeningLabelMenu(dataRow, labelTrigger);
                 });
                 
                 return tr;
@@ -1232,12 +1462,8 @@
                 dateInp.classList.toggle('invalid-input', invalidDate);
                 dateInp.setAttribute('aria-invalid', String(invalidDate));
 
-                const labelInp = tr.querySelector('.scan-label-input');
-                if (document.activeElement !== labelInp) labelInp.value = dataRow.customLabel || '';
-                labelInp.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
-                labelInp.title = dataRow.isLabelAnchor
-                    ? 'Label anchor: other scan labels are inferred from this date.'
-                    : 'Type or choose one standard screening label to infer the other labels.';
+                const labelTrigger = tr.querySelector('.scan-label-trigger');
+                updateLabelTrigger(labelTrigger, dataRow);
 
                 const safeVal = (v) => (v === undefined || v === null) ? '' : v;
                 const solidInp = tr.querySelector('.solid-input');
@@ -1249,7 +1475,6 @@
                 const nonsolidInp = tr.querySelector('.nonsolid-input');
                 if (document.activeElement !== nonsolidInp) nonsolidInp.value = safeVal(dataRow.nonsolid);
 
-                tr.querySelector('.baseline-radio').checked = dataRow.isBaseline;
             }
 
             function renderTable() {
@@ -1285,9 +1510,8 @@
                         if (!dataRow.isLabelAnchor) dataRow.labelSource = 'auto';
                     }
 
-                    const input = tableBody.querySelector(`tr[data-id="${dataRow.id}"] .scan-label-input`);
-                    if (input && document.activeElement !== input) input.value = dataRow.customLabel || '';
-                    if (input) input.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
+                    const trigger = tableBody.querySelector(`tr[data-id="${dataRow.id}"] .scan-label-trigger`);
+                    if (trigger) updateLabelTrigger(trigger, dataRow);
                 });
             }
 
@@ -1305,18 +1529,10 @@
                 }
             }
 
-            function setBaseline(rowId) {
-                tableData.forEach(d => {
-                    d.isBaseline = (d.id === rowId);
-                    d.isLabelAnchor = false;
-                    if (VDTCore.parseScanLabel(d.customLabel)) d.labelSource = 'auto';
-                });
-                renderTable();
-            }
-
             function clearAll() {
                 patientIdInput.value = '';
-                noduleIdInput.value = DEFAULT_NODULE_ID;
+                currentNoduleId = DEFAULT_NODULE_ID;
+                noduleLocationInput.value = '';
                 tableData = [];
                 tableBody.innerHTML = '';
                 newNoduleCheckbox.checked = false;
@@ -1324,6 +1540,7 @@
                 predictionCheckbox.checked = false;
                 uniqueRowId = 0;
                 for(let i=0; i<4; i++) addScan();
+                renderNoduleTabs();
             }
 
             function format_date(event) {
@@ -1382,7 +1599,7 @@
                             if (!r.value) return '-';
                             let html = r.html;
                             if (isMaxCalc) html += '<sub>(max)</sub>';
-                            html += `<div class="extra-info">Interval: ${r.timeDiff}d · Change: ${r.volumeChange > 0 ? '+' : ''}${r.volumeChange}%</div>`;
+                            html += `<div class="extra-info" title="Time between scans · volume change">${r.timeDiff} days · volume ${r.volumeChange > 0 ? '+' : ''}${r.volumeChange}%</div>`;
                             return html;
                         };
                         row.querySelector('.vdt-solid-result').innerHTML = fmt(resS);
@@ -1413,7 +1630,7 @@
 
                     const boxHtml = (label, res, type) => {
                         const details = res && res.timeDiff !== null
-                            ? `<div class="extra-info">Total interval: ${res.timeDiff}d · Total change: ${res.volumeChange > 0 ? '+' : ''}${res.volumeChange}%</div>`
+                            ? `<div class="extra-info" title="Time from first to latest scan · total volume change">${res.timeDiff} days · volume ${res.volumeChange > 0 ? '+' : ''}${res.volumeChange}%</div>`
                             : '';
                         return `
                         <div class="total-result-box">
@@ -1682,6 +1899,28 @@
                     if(i < dataForCalc.length -1) html += `<td style="${cellStyle}"></td>`;
                 });
                 html += '</tr>';
+
+                const formatIntervalVdt = (i) => {
+                    const curr = dataForCalc[i];
+                    const prev = dataForCalc[i + 1];
+                    const days = (curr.dateObj - prev.dateObj) / 86400000;
+                    const currentVolume = type === 'solid' ? curr.solid : (type === 'core' ? curr.core : curr.nonsolid);
+                    let previousVolume = type === 'solid' ? prev.solid : (type === 'core' ? prev.core : prev.nonsolid);
+                    const isMax = i + 1 === dataForCalc.length - 1 && isNewNodule;
+                    if (isMax) previousVolume = 15;
+
+                    const result = calculateSingleVDT(currentVolume, previousVolume, days, isMax);
+                    let display = result.value ? `${result.value}d` : 'N/A';
+                    if (result.html && result.html.includes('15mm')) display = 'N/A';
+                    else if (result.value === 'Stable') display = 'Stable';
+                    else if (parseFloat(result.value) > 0 && parseFloat(result.value) <= 400) display = `<b style="color:${VDT_COLORS.positive}">${display}</b>`;
+                    else if (parseFloat(result.value) > 400 && parseFloat(result.value) <= 600) display = `<b style="color:${VDT_COLORS.indeterminate}">${display}</b>`;
+                    else if (parseFloat(result.value) < 0 && parseFloat(result.value) >= -400) display = `<b style="color:${VDT_COLORS.shrinking}">${display}</b>`;
+
+                    let label = type === 'solid' ? 'VDT' : (type === 'core' ? 'VDT<sub>core</sub>' : 'VDT<sub>GGO</sub>');
+                    if (isMax) label += '<sub>(max)</sub>';
+                    return `${label}: ${display}`;
+                };
                 
                 // Volumes Row
                 html += '<tr>';
@@ -1692,41 +1931,27 @@
                     if (state === 'absent') volumeText = '';
                     else if (state === 'new' && !isNaN(v)) volumeText += ' (new)';
                     html += `<td style="${cellStyle}">${volumeText}</td>`;
-                    if(i < dataForCalc.length -1) html += `<td style="${cellStyle}"></td>`;
+                    if (i < dataForCalc.length - 1) {
+                        const betweenScans = dataForCalc.length === 2 ? formatIntervalVdt(i) : '';
+                        html += `<td style="${cellStyle}">${betweenScans}</td>`;
+                    }
                 });
                 html += '</tr>';
                 
-                // VDT Row
-                html += '<tr>';
-                for(let i=0; i<dataForCalc.length; i++) {
-                    if(i === dataForCalc.length -1) {
-                         html += `<td style="${cellStyle}"></td>`;
-                    } else {
-                         html += `<td style="${cellStyle}"></td>`; 
-                         const curr = dataForCalc[i]; const prev = dataForCalc[i+1];
-                         const d = (curr.dateObj - prev.dateObj)/86400000;
-                         let vc = type==='solid' ? curr.solid : (type==='core'?curr.core:curr.nonsolid);
-                         let vp = type==='solid' ? prev.solid : (type==='core'?prev.core:prev.nonsolid);
-                         
-                         let isMax = (i+1 === dataForCalc.length -1 && document.getElementById('new-nodule-checkbox').checked);
-                         if(isMax) vp = 15;
-                         
-                         const r = calculateSingleVDT(vc, vp, d, isMax);
-                         
-                         let dStr = r.value ? r.value + 'd' : 'N/A';
-                         if(r.html && r.html.includes('15mm')) dStr = 'N/A';
-                         else if(r.value === 'Stable') dStr = 'Stable';
-                         else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:${VDT_COLORS.positive}">${dStr}</b>`;
-                         else if(parseFloat(r.value) > 400 && parseFloat(r.value) <= 600) dStr = `<b style="color:${VDT_COLORS.indeterminate}">${dStr}</b>`;
-                         else if(parseFloat(r.value) < 0 && parseFloat(r.value) >= -400) dStr = `<b style="color:${VDT_COLORS.shrinking}">${dStr}</b>`;
-                         
-                         let l = type==='solid' ? 'VDT' : (type==='core'?'VDT<sub>core</sub>':'VDT<sub>GGO</sub>');
-                         if(isMax) l += '<sub>(max)</sub>';
-                         
-                         html += `<td style="${cellStyle}">${l}: ${dStr}</td>`;
+                // Multi-scan reports keep a separate row for each interval.
+                if (dataForCalc.length > 2) {
+                    html += '<tr>';
+                    for (let i = 0; i < dataForCalc.length; i++) {
+                        if (i === dataForCalc.length - 1) {
+                            html += `<td style="${cellStyle}"></td>`;
+                        } else {
+                            html += `<td style="${cellStyle}"></td>`;
+                            html += `<td style="${cellStyle}">${formatIntervalVdt(i)}</td>`;
+                        }
                     }
+                    html += '</tr>';
                 }
-                html += '</tr></table>';
+                html += '</table>';
                 
                 const t = document.createElement('div');
                 t.innerHTML = html;
@@ -1753,7 +1978,7 @@
             // --- Export / Import CSV Data Migration ---
 
             function exportAllToCSV() {
-                const rows = [["PatientID", "NoduleID", "Date", "Solid", "SolidCore", "NonSolid", "Baseline", "CustomLabel", "LabelAnchor", "LabelSource", "Notes", "IsStarred", "NewNodule"]];
+                const rows = [["PatientID", "NoduleID", "NoduleLocation", "Date", "Solid", "SolidCore", "NonSolid", "Baseline", "CustomLabel", "LabelAnchor", "LabelSource", "Notes", "IsStarred", "NewNodule"]];
                 let hasData = false;
 
                 for (let i = 0; i < localStorage.length; i++) {
@@ -1769,6 +1994,7 @@
                                         rows.push([
                                             identity.patientId,
                                             identity.noduleId,
+                                            data.noduleLocation || '',
                                             row.date || '',
                                             row.solid || '',
                                             row.core || '',
@@ -1831,6 +2057,7 @@
                     const headers = rows[0].map(h => h.toLowerCase().trim());
                     const pidIdx = headers.findIndex(h => h.includes('patient'));
                     const noduleIdx = headers.findIndex(h => h === 'noduleid' || h === 'nodule id' || h === 'nodule');
+                    const noduleLocationIdx = headers.findIndex(h => h === 'nodulelocation' || h === 'nodule location' || h === 'location');
                     const dateIdx = headers.findIndex(h => h === 'date' || h.includes('scan date'));
                     const solidIdx = headers.findIndex(h => h === 'solid');
                     const coreIdx = headers.findIndex(h => h === 'core' || h === 'solidcore' || h === 'solid core');
@@ -1861,6 +2088,7 @@
                             importedData[groupKey] = {
                                 patientId: pid,
                                 noduleId,
+                                noduleLocation: noduleLocationIdx !== -1 ? cols[noduleLocationIdx] : '',
                                 tableData: [],
                                 notes: notesIdx !== -1 ? cols[notesIdx] : '',
                                 isStarred: starIdx !== -1 ? cols[starIdx] === 'true' : false,
@@ -1898,6 +2126,7 @@
                             ...existing,
                             patientId: pid,
                             noduleId,
+                            noduleLocation: importedRecord.noduleLocation || existing.noduleLocation || '',
                             tableData: newTableData,
                             notes: importedRecord.notes || existing.notes || '',
                             isStarred: importedRecord.isStarred !== undefined ? importedRecord.isStarred : (existing.isStarred || false),
@@ -1911,9 +2140,9 @@
 
                     alert(`成功导入/更新了 ${importCount} 个结节记录。 (Successfully imported ${importCount} nodule records.)`);
                     
-                    const currentGroupKey = JSON.stringify([patientIdInput.value.trim(), normalizeNoduleId(noduleIdInput.value)]);
+                    const currentGroupKey = JSON.stringify([patientIdInput.value.trim(), currentNoduleId]);
                     if (patientIdInput.value.trim() && importedData[currentGroupKey]) {
-                        loadData(patientIdInput.value.trim(), noduleIdInput.value);
+                        loadData(patientIdInput.value.trim(), currentNoduleId);
                     } else if (importCount === 1) {
                         const onlyRecord = importedData[Object.keys(importedData)[0]];
                         loadData(onlyRecord.patientId, onlyRecord.noduleId);
@@ -1957,7 +2186,7 @@
                 });
 
                 if (filteredPatients.length === 0) {
-                    patientListBody.innerHTML = `<tr><td colspan="8">No patient or nodule records found.</td></tr>`;
+                    patientListBody.innerHTML = `<tr><td colspan="9">No patient or nodule records found.</td></tr>`;
                 }
                 filteredPatients.forEach(patient => {
                     const tr = document.createElement('tr');
@@ -1984,7 +2213,8 @@
                     };
 
                     appendTextCell(patient.id);
-                    appendTextCell(patient.noduleId);
+                    appendTextCell(noduleDisplayLabel(patient.noduleId));
+                    appendTextCell(patient.noduleLocation || '—');
                     appendResultCell(patient.totals.solidVdtHtml);
                     appendResultCell(patient.totals.coreVdtHtml);
                     appendResultCell(patient.totals.ggoVdtHtml);
@@ -2073,11 +2303,10 @@
                 }
             }
 
-            function saveData() {
+            function saveData(options = {}) {
                 const pid = patientIdInput.value.trim();
                 if (!pid) { alert('Please enter a Patient ID.'); return false; }
-                const noduleId = normalizeNoduleId(noduleIdInput.value);
-                noduleIdInput.value = noduleId;
+                const noduleId = normalizeNoduleId(currentNoduleId);
                 const storageKey = getStorageKey(pid, noduleId);
                 let existing = {};
                 const str = localStorage.getItem(storageKey);
@@ -2085,27 +2314,31 @@
                     try { existing = JSON.parse(str); }
                     catch (error) { alert('The existing record is invalid and was not overwritten.'); return false; }
                 }
-                const data = { ...existing, patientId: pid, noduleId, tableData: tableData, isNewNodule: newNoduleCheckbox.checked, isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
+                const data = { ...existing, patientId: pid, noduleId, noduleLocation: noduleLocationInput.value.trim(), tableData: tableData, isNewNodule: newNoduleCheckbox.checked, isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
                 try {
                     localStorage.setItem(storageKey, JSON.stringify(data));
                 } catch (error) {
                     alert('Unable to save this record. Browser storage may be full or unavailable.');
                     return false;
                 }
-                const orig = saveBtn.textContent; saveBtn.textContent = 'Saved!'; setTimeout(() => saveBtn.textContent = orig, 2000);
+                renderNoduleTabs();
+                if (!options.silent) {
+                    const orig = saveBtn.textContent; saveBtn.textContent = 'Saved!'; setTimeout(() => saveBtn.textContent = orig, 2000);
+                }
                 return true;
             }
             function loadData(pid, noduleId) {
                 const id = pid || patientIdInput.value.trim();
                 if(!id) return;
-                const targetNoduleId = normalizeNoduleId(noduleId || noduleIdInput.value);
+                const targetNoduleId = normalizeNoduleId(noduleId || currentNoduleId);
                 const str = localStorage.getItem(getStorageKey(id, targetNoduleId));
                 if(str) {
                     let data;
                     try { data = JSON.parse(str); }
                     catch (error) { alert(`Unable to load ${id}: stored data is invalid.`); return; }
                     patientIdInput.value = id;
-                    noduleIdInput.value = normalizeNoduleId(data.noduleId || targetNoduleId);
+                    currentNoduleId = normalizeNoduleId(data.noduleId || targetNoduleId);
+                    noduleLocationInput.value = data.noduleLocation || '';
                     tableData = data.tableData || [];
                     newNoduleCheckbox.checked = data.isNewNodule || false;
                     logScaleCheckbox.checked = data.isLogScale || false;
@@ -2113,11 +2346,24 @@
                     uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d=>d.id)) + 1 : 0;
                     tableBody.innerHTML = ''; 
                     renderTable();
+                    renderNoduleTabs();
                 }
+            }
+            function loadPatient() {
+                const pid = patientIdInput.value.trim();
+                if (!pid) return;
+                const ids = getPatientNodules(pid);
+                const preferred = ids.includes(DEFAULT_NODULE_ID) ? DEFAULT_NODULE_ID : ids[0];
+                const hasStored = localStorage.getItem(getStorageKey(pid, preferred));
+                currentNoduleId = preferred;
+                if (hasStored) loadData(pid, preferred);
+                else renderNoduleTabs();
             }
             function saveAndNew() { if (saveData()) clearAll(); }
 
             addScanBtn.addEventListener('click', addScan);
+            addNoduleBtn.addEventListener('click', addNodule);
+            deleteNoduleBtn.addEventListener('click', deleteCurrentNodule);
             clearBtn.addEventListener('click', clearAll);
             saveBtn.addEventListener('click', saveData);
             exportBtn.addEventListener('click', exportAllToCSV); // Attached new export
@@ -2127,10 +2373,9 @@
             importBtn.addEventListener('click', () => csvFileInput.click());
             csvFileInput.addEventListener('change', handleImportCSV);
             
-            patientIdInput.addEventListener('blur', () => loadData());
-            patientIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadData(); });
-            noduleIdInput.addEventListener('change', () => loadData());
-            noduleIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadData(); });
+            patientIdInput.addEventListener('blur', loadPatient);
+            patientIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadPatient(); });
+            noduleLocationInput.addEventListener('input', renderNoduleTabs);
             sortOrderSelect.addEventListener('change', renderTable);
             newNoduleCheckbox.addEventListener('change', calculateAll);
             logScaleCheckbox.addEventListener('change', calculateAll);
@@ -2145,12 +2390,29 @@
             showStarredOnlyCheckbox.addEventListener('change', openPatientManager);
             showPositiveOnlyCheckbox.addEventListener('change', openPatientManager);
             showNewNoduleOnlyCheckbox.addEventListener('change', openPatientManager);
+            screeningLabelMenu.addEventListener('click', (event) => {
+                const option = event.target.closest('[data-label]');
+                if (!option || !activeLabelRow) return;
+                const trigger = activeLabelTrigger;
+                setLabelAnchor(activeLabelRow, option.dataset.label);
+                closeScreeningLabelMenu();
+                if (trigger) trigger.focus();
+            });
+            document.addEventListener('click', (event) => {
+                if (!screeningLabelMenu.contains(event.target)) closeScreeningLabelMenu();
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') closeScreeningLabelMenu();
+            });
+            window.addEventListener('scroll', closeScreeningLabelMenu, true);
             document.addEventListener('mouseover', (e) => { if(e.target.classList.contains('tooltip-icon')) showTooltip(e.target, e.target.dataset.tooltip); });
             document.addEventListener('mouseout', (e) => { if(e.target.classList.contains('tooltip-icon')) hideTooltip(); });
 
             function initializeEmptyCalculator() {
                 createTooltip();
+                buildScreeningLabelMenu();
                 tableData = []; uniqueRowId = 0; for(let i=0; i<4; i++) addScan();
+                renderNoduleTabs();
             }
             initializeEmptyCalculator();
 
