@@ -378,15 +378,7 @@
         
         /* Column widths */
         .row-controls { width: 35px; }
-        .baseline-col { width: 35px; }
         .scan-number-col { width: 190px; min-width: 190px; font-weight: 600; color: var(--text-light); }
-        
-        .baseline-radio {
-            cursor: pointer;
-            width: 16px;
-            height: 16px;
-            accent-color: var(--primary-color);
-        }
 
         /* Delete Controls */
         .delete-row-btn {
@@ -639,24 +631,6 @@
             background: #EDF6F6;
             box-shadow: inset 3px 0 0 var(--primary-color);
         }
-        .volume-input-wrap {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-        .data-table .volume-input-wrap input {
-            width: 72px;
-            flex: 0 0 72px;
-            min-width: 0;
-        }
-        .new-nodule-badge {
-            color: var(--primary-color);
-            font-size: 0.75rem;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
         input[type="checkbox"] {
             accent-color: var(--primary-color);
         }
@@ -686,7 +660,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.2.1</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.2.2</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -748,7 +722,6 @@
                 <thead>
                     <tr>
                         <th class="row-controls"></th>
-                        <th class="baseline-col" title="Select Baseline">BL</th>
                         <th class="scan-number-col">Screening round</th>
                         <th>Date</th>
                         <th>Solid (mm³)</th>
@@ -838,8 +811,17 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.2 - Clinical Interface</div>
+                    <div class="changelog-version">v3.2.2 - Table Clarity</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Volume alignment:</strong> Removed the in-table “(new)” badge so measurements remain precisely centered; copied reports still retain it.</li>
+                            <li><strong>Baseline workflow:</strong> Removed the redundant BL radio column; use the full “Baseline” screening-round anchor instead.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.2 - Clinical Interface</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Identity:</strong> Renamed to VDT Calculator across the app and install metadata.</li>
@@ -981,16 +963,13 @@
                     <td class="row-controls">
                         <button class="delete-row-btn" title="Delete">&times;</button>
                     </td>
-                    <td>
-                        <input type="radio" name="baseline-group" class="baseline-radio" ${dataRow.isBaseline ? 'checked' : ''}>
-                    </td>
                     <td class="scan-number scan-number-col">
                          <input type="text" class="scan-label-input" list="scan-label-options" value="${safeAttr(dataRow.customLabel)}" placeholder="Type one anchor label">
                     </td>
                     <td><input type="text" class="date-input" value="${safeAttr(dataRow.date)}" placeholder="YYYY-MM-DD" inputmode="numeric"></td>
-                    <td><div class="volume-input-wrap"><input type="number" class="solid-input" value="${safeAttr(dataRow.solid)}" min="0" step="0.1"><span class="new-nodule-badge hidden">(new)</span></div></td>
-                    <td><div class="volume-input-wrap"><input type="number" class="core-input" value="${safeAttr(dataRow.core)}" min="0" step="0.1"><span class="new-nodule-badge hidden">(new)</span></div></td>
-                    <td><div class="volume-input-wrap"><input type="number" class="nonsolid-input" value="${safeAttr(dataRow.nonsolid)}" min="0" step="0.1"><span class="new-nodule-badge hidden">(new)</span></div></td>
+                    <td><input type="number" class="solid-input" value="${safeAttr(dataRow.solid)}" min="0" step="0.1"></td>
+                    <td><input type="number" class="core-input" value="${safeAttr(dataRow.core)}" min="0" step="0.1"></td>
+                    <td><input type="number" class="nonsolid-input" value="${safeAttr(dataRow.nonsolid)}" min="0" step="0.1"></td>
                     <td class="result-cell vdt-solid-result">-</td>
                     <td class="result-cell vdt-core-result">-</td>
                     <td class="result-cell vdt-ggo-result">-</td>
@@ -1064,17 +1043,6 @@
 
                 tr.querySelector('.delete-row-btn').addEventListener('click', () => deleteRow(dataRow.id));
 
-                const radio = tr.querySelector('.baseline-radio');
-                radio.addEventListener('click', (e) => {
-                    if (dataRow.isBaseline) {
-                        e.preventDefault();
-                        dataRow.isBaseline = false;
-                        setTimeout(() => renderTable(), 0);
-                    } else {
-                        setBaseline(dataRow.id);
-                    }
-                });
-
                 const labelInput = tr.querySelector('.scan-label-input');
                 labelInput.addEventListener('input', (e) => {
                      dataRow.customLabel = e.target.value;
@@ -1137,7 +1105,6 @@
                 const nonsolidInp = tr.querySelector('.nonsolid-input');
                 if (document.activeElement !== nonsolidInp) nonsolidInp.value = safeVal(dataRow.nonsolid);
 
-                tr.querySelector('.baseline-radio').checked = dataRow.isBaseline;
             }
 
             function renderTable() {
@@ -1193,15 +1160,6 @@
                 }
             }
 
-            function setBaseline(rowId) {
-                tableData.forEach(d => {
-                    d.isBaseline = (d.id === rowId);
-                    d.isLabelAnchor = false;
-                    if (VDTCore.parseScanLabel(d.customLabel)) d.labelSource = 'auto';
-                });
-                renderTable(); 
-            }
-
             function clearAll() {
                 patientIdInput.value = '';
                 tableData = [];
@@ -1239,21 +1197,8 @@
                     .sort((a, b) => a.dateObj - b.dateObj);
 
                 document.querySelectorAll('.result-cell').forEach(c => c.innerHTML = '-');
-                document.querySelectorAll('.new-nodule-badge').forEach(badge => badge.classList.add('hidden'));
                 totalResultsContainer.innerHTML = '';
                 predictionResultsContainer.classList.add('hidden');
-
-                if (isNewNodule && dataForCalc.length > 1) {
-                    const firstAppearanceRow = tableBody.querySelector(`tr[data-id="${dataForCalc[1].id}"]`);
-                    if (firstAppearanceRow) {
-                        ['solid', 'core', 'nonsolid'].forEach(type => {
-                            const value = dataForCalc[1][type];
-                            const input = firstAppearanceRow.querySelector(`.${type}-input`);
-                            const badge = input?.parentElement.querySelector('.new-nodule-badge');
-                            if (badge && Number.isFinite(value) && value > 0) badge.classList.remove('hidden');
-                        });
-                    }
-                }
 
                 let firstSolid, firstCore, firstGgo; 
                 

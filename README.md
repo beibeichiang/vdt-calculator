@@ -4,7 +4,9 @@ A browser-based volume doubling time (VDT) calculator for longitudinal pulmonary
 
 For screening-round labels, enter one standard anchor (`Baseline`, `1st Annual`, `2nd Annual`, or `Biennial`, optionally followed by `+3m`, `+6m`, or `+9m`). The app infers the adjacent labels from scan dates, including partial four-scan series that do not contain the baseline scan.
 
-When **New nodule · VDTmax** is selected, the preceding absent scan remains visually blank and the first measured volume is marked `(new)`. The 15 mm³ threshold is used only internally to calculate VDTmax.
+When **New nodule · VDTmax** is selected, the preceding absent scan remains visually blank. Copied reports mark the first measured volume `(new)`, while the table keeps volume values centered. The 15 mm³ threshold is used only internally to calculate VDTmax.
+
+To identify the baseline scan, select the full **Baseline** value in the **Screening round** field. The earlier dedicated `BL` radio column is no longer needed; legacy saved baseline flags remain compatible.
 
 ## Use
 
