@@ -94,6 +94,15 @@ test('baseline anchor assigns repeat 3m labels and annual screening', () => {
     assert.equal(labels[5], '1st Annual');
 });
 
+test('baseline radio overrides a previously generated repeat label', () => {
+    const labels = inferScanLabels([
+        { id: 1, date: '2024-04-26', isBaseline: true, customLabel: 'Baseline+3m' },
+        { id: 2, date: '2025-04-26', customLabel: '1st Annual' }
+    ]);
+    assert.equal(labels[1], 'Baseline');
+    assert.equal(labels[2], '1st Annual');
+});
+
 test('baseline without annual screening can progress directly to biennial', () => {
     const labels = inferScanLabels([
         { id: 1, date: '2024-01-10', isBaseline: true },

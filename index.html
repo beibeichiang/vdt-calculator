@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js"></script>
+    <script src="./vdt-core.js?v=3.2.3"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -378,7 +378,15 @@
         
         /* Column widths */
         .row-controls { width: 35px; }
+        .baseline-col { width: 76px; min-width: 76px; }
         .scan-number-col { width: 190px; min-width: 190px; font-weight: 600; color: var(--text-light); }
+
+        .baseline-radio {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary-color);
+        }
 
         /* Delete Controls */
         .delete-row-btn {
@@ -660,7 +668,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.2.2</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.2.3</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -722,6 +730,7 @@
                 <thead>
                     <tr>
                         <th class="row-controls"></th>
+                        <th class="baseline-col" title="Select the baseline scan">Baseline</th>
                         <th class="scan-number-col">Screening round</th>
                         <th>Date</th>
                         <th>Solid (mm³)</th>
@@ -811,8 +820,17 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.2.2 - Table Clarity</div>
+                    <div class="changelog-version">v3.2.3 - Baseline &amp; Icon</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>One-click Baseline:</strong> Restored the radio selector with its full name and kept label editing frictionless.</li>
+                            <li><strong>App icon:</strong> Reframed the mark around simplified lungs, a solid nodule, and its dashed future growth boundary.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.2.2 - Table Clarity</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Volume alignment:</strong> Removed the in-table “(new)” badge so measurements remain precisely centered; copied reports still retain it.</li>
@@ -963,6 +981,9 @@
                     <td class="row-controls">
                         <button class="delete-row-btn" title="Delete">&times;</button>
                     </td>
+                    <td>
+                        <input type="radio" name="baseline-group" class="baseline-radio" aria-label="Set this scan as Baseline" title="Set this scan as Baseline" ${dataRow.isBaseline ? 'checked' : ''}>
+                    </td>
                     <td class="scan-number scan-number-col">
                          <input type="text" class="scan-label-input" list="scan-label-options" value="${safeAttr(dataRow.customLabel)}" placeholder="Type one anchor label">
                     </td>
@@ -1043,6 +1064,17 @@
 
                 tr.querySelector('.delete-row-btn').addEventListener('click', () => deleteRow(dataRow.id));
 
+                const radio = tr.querySelector('.baseline-radio');
+                radio.addEventListener('click', (e) => {
+                    if (dataRow.isBaseline) {
+                        e.preventDefault();
+                        dataRow.isBaseline = false;
+                        setTimeout(() => renderTable(), 0);
+                    } else {
+                        setBaseline(dataRow.id);
+                    }
+                });
+
                 const labelInput = tr.querySelector('.scan-label-input');
                 labelInput.addEventListener('input', (e) => {
                      dataRow.customLabel = e.target.value;
@@ -1070,6 +1102,9 @@
                 };
                 labelInput.addEventListener('change', commitLabel);
                 labelInput.addEventListener('blur', commitLabel);
+                labelInput.addEventListener('focus', () => {
+                    if (dataRow.labelSource !== 'manual') labelInput.select();
+                });
                 labelInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
@@ -1105,6 +1140,7 @@
                 const nonsolidInp = tr.querySelector('.nonsolid-input');
                 if (document.activeElement !== nonsolidInp) nonsolidInp.value = safeVal(dataRow.nonsolid);
 
+                tr.querySelector('.baseline-radio').checked = dataRow.isBaseline;
             }
 
             function renderTable() {
@@ -1158,6 +1194,15 @@
                     if(tr) tr.remove();
                     renderTable();
                 }
+            }
+
+            function setBaseline(rowId) {
+                tableData.forEach(d => {
+                    d.isBaseline = (d.id === rowId);
+                    d.isLabelAnchor = false;
+                    if (VDTCore.parseScanLabel(d.customLabel)) d.labelSource = 'auto';
+                });
+                renderTable();
             }
 
             function clearAll() {

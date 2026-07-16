@@ -6,7 +6,7 @@ For screening-round labels, enter one standard anchor (`Baseline`, `1st Annual`,
 
 When **New nodule · VDTmax** is selected, the preceding absent scan remains visually blank. Copied reports mark the first measured volume `(new)`, while the table keeps volume values centered. The 15 mm³ threshold is used only internally to calculate VDTmax.
 
-To identify the baseline scan, select the full **Baseline** value in the **Screening round** field. The earlier dedicated `BL` radio column is no longer needed; legacy saved baseline flags remain compatible.
+Use the full **Baseline** radio column for one-click baseline selection. You can also type a standard anchor into **Screening round**; automatically generated labels are selected on focus so replacement does not require manual deletion.
 
 ## Use
 

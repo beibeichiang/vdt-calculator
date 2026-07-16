@@ -173,7 +173,7 @@
             return labels;
         }
 
-        const parsedAnchor = anchor.isBaseline && !parseScanLabel(anchor.customLabel)
+        const parsedAnchor = anchor.isBaseline
             ? parseScanLabel('Baseline')
             : parseScanLabel(anchor.customLabel) || parseScanLabel('Baseline');
         const routineDates = ROUTINE_STAGES.map(stage => addMonths(anchor.dateObj, stage.months - ROUTINE_STAGES[parsedAnchor.stageIndex].months - parsedAnchor.offsetMonths));

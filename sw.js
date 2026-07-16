@@ -1,9 +1,9 @@
-const CACHE_NAME = 'vdt-calculator-v3.2.2';
+const CACHE_NAME = 'vdt-calculator-v3.2.3';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './vdt-core.js',
+  './vdt-core.js?v=3.2.3',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
