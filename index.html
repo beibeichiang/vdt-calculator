@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.3"></script>
+    <script src="./vdt-core.js?v=3.3.4"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -778,7 +778,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.3</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.4</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -799,8 +799,7 @@
             <div class="nodule-switcher" aria-label="Nodules for this patient">
                 <div class="nodule-tabs" id="nodule-tabs"></div>
             </div>
-            <label for="nodule-location">Location <span style="font-weight: 400; color: var(--text-light);">(optional)</span></label>
-            <input type="text" id="nodule-location" placeholder="e.g. RUL #133" autocomplete="off" spellcheck="false">
+            <input type="text" id="nodule-location" aria-label="Nodule location (optional)" placeholder="e.g. RUL #133" autocomplete="off" spellcheck="false">
             <button type="button" class="control-btn add-nodule-btn" id="add-nodule-btn">+ Add nodule</button>
             <button type="button" class="delete-nodule-btn" id="delete-nodule-btn" aria-label="Delete current nodule" title="Delete current nodule">&times;</button>
             <span class="patient-id-hint">Stored locally in this browser. Use Backup for a portable copy.</span>
@@ -934,8 +933,17 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.3.3 - Compact Two-scan Report</div>
+                    <div class="changelog-version">v3.3.4 - Faster Unsaved Nodule Entry</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>No Patient ID required:</strong> Add, switch, and remove nodules during an unsaved session; Reset clears the whole session.</li>
+                            <li><strong>Cleaner location field:</strong> The example is shown inside the optional input without a separate label.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.3 - Compact Two-scan Report</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Two-scan layout:</strong> When only one VDT interval exists, Copy Report places the VDT directly between the two volumes instead of adding a separate row.</li>
@@ -1115,6 +1123,7 @@
             let tableData = [];
             let volumeChart = null;
             let currentNoduleId = 'Nodule 1';
+            let transientNodules = new Map();
             let activeLabelRow = null;
             let activeLabelTrigger = null;
             const STORAGE_PREFIX = 'vdt-calc-';
@@ -1178,9 +1187,53 @@
                 return fallbackIndex === null ? noduleId : `#${fallbackIndex + 1}`;
             }
 
-            function renderNoduleTabs() {
-                const ids = getPatientNodules(patientIdInput.value);
+            function sortNoduleIds(ids) {
+                return [...ids].sort((a, b) => {
+                    const aNum = Number(a.match(/^Nodule (\d+)$/i)?.[1]);
+                    const bNum = Number(b.match(/^Nodule (\d+)$/i)?.[1]);
+                    if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum;
+                    if (Number.isFinite(aNum)) return -1;
+                    if (Number.isFinite(bNum)) return 1;
+                    return a.localeCompare(b);
+                });
+            }
+
+            function captureTransientNodule() {
+                transientNodules.set(currentNoduleId, {
+                    noduleLocation: noduleLocationInput.value.trim(),
+                    tableData: tableData.map(row => ({ ...row })),
+                    isNewNodule: newNoduleCheckbox.checked,
+                    isLogScale: logScaleCheckbox.checked,
+                    isPrediction: predictionCheckbox.checked
+                });
+            }
+
+            function loadTransientNodule(noduleId) {
+                const data = transientNodules.get(noduleId);
+                if (!data) return;
+                currentNoduleId = noduleId;
+                noduleLocationInput.value = data.noduleLocation || '';
+                tableData = (data.tableData || []).map(row => ({ ...row }));
+                newNoduleCheckbox.checked = Boolean(data.isNewNodule);
+                logScaleCheckbox.checked = Boolean(data.isLogScale);
+                predictionCheckbox.checked = Boolean(data.isPrediction);
+                uniqueRowId = tableData.length ? Math.max(...tableData.map(row => row.id)) + 1 : 0;
+                tableBody.innerHTML = '';
+                renderTable();
+                renderNoduleTabs();
+            }
+
+            function getVisibleNoduleIds() {
+                const pid = patientIdInput.value.trim();
+                const ids = pid ? getPatientNodules(pid) : Array.from(transientNodules.keys());
                 if (!ids.includes(currentNoduleId)) ids.push(currentNoduleId);
+                if (!ids.length) ids.push(DEFAULT_NODULE_ID);
+                return sortNoduleIds(ids);
+            }
+
+            function renderNoduleTabs() {
+                const pid = patientIdInput.value.trim();
+                const ids = getVisibleNoduleIds();
                 noduleTabs.innerHTML = '';
                 ids.forEach((noduleId, index) => {
                     const button = document.createElement('button');
@@ -1189,7 +1242,9 @@
                     button.textContent = noduleDisplayLabel(noduleId, index);
                     let location = '';
                     try {
-                        const stored = JSON.parse(localStorage.getItem(getStorageKey(patientIdInput.value, noduleId)) || 'null');
+                        const stored = pid
+                            ? JSON.parse(localStorage.getItem(getStorageKey(pid, noduleId)) || 'null')
+                            : transientNodules.get(noduleId);
                         location = noduleId === currentNoduleId ? noduleLocationInput.value.trim() : (stored?.noduleLocation || '');
                     } catch (error) {}
                     button.title = `Show ${noduleId}${location ? ` · ${location}` : ''}`;
@@ -1206,20 +1261,20 @@
             function switchNodule(noduleId) {
                 if (noduleId === currentNoduleId) return;
                 const pid = patientIdInput.value.trim();
-                if (!pid) return;
+                if (!pid) {
+                    captureTransientNodule();
+                    loadTransientNodule(noduleId);
+                    return;
+                }
                 saveData({ silent: true });
                 loadData(pid, noduleId);
             }
 
             function addNodule() {
                 const pid = patientIdInput.value.trim();
-                if (!pid) {
-                    alert('Please enter a Patient ID before adding another nodule.');
-                    patientIdInput.focus();
-                    return;
-                }
-                saveData({ silent: true });
-                const ids = getPatientNodules(pid);
+                if (pid) saveData({ silent: true });
+                else captureTransientNodule();
+                const ids = getVisibleNoduleIds();
                 const usedNumbers = ids
                     .map(id => Number(id.match(/^Nodule (\d+)$/i)?.[1]))
                     .filter(Number.isFinite);
@@ -1235,17 +1290,27 @@
                 newNoduleCheckbox.checked = false;
                 tableBody.innerHTML = '';
                 renderTable();
-                saveData({ silent: true });
+                if (pid) saveData({ silent: true });
+                else captureTransientNodule();
                 renderNoduleTabs();
                 noduleLocationInput.focus();
             }
 
             function deleteCurrentNodule() {
                 const pid = patientIdInput.value.trim();
-                const ids = getPatientNodules(pid);
-                if (!pid || ids.length <= 1) return;
+                const ids = getVisibleNoduleIds();
+                if (ids.length <= 1) return;
                 const label = noduleDisplayLabel(currentNoduleId);
                 if (!confirm(`Delete ${label}${noduleLocationInput.value.trim() ? ` · ${noduleLocationInput.value.trim()}` : ''}? This cannot be undone.`)) return;
+                if (!pid) {
+                    captureTransientNodule();
+                    transientNodules.delete(currentNoduleId);
+                    const records = sortNoduleIds(Array.from(transientNodules.keys())).map(id => transientNodules.get(id));
+                    transientNodules = new Map(records.map((data, index) => [`Nodule ${index + 1}`, data]));
+                    currentNoduleId = DEFAULT_NODULE_ID;
+                    loadTransientNodule(currentNoduleId);
+                    return;
+                }
                 localStorage.removeItem(getStorageKey(pid, currentNoduleId));
                 let remaining = getPatientNodules(pid);
                 if (remaining.every(id => /^Nodule \d+$/i.test(id))) {
@@ -1532,6 +1597,7 @@
             function clearAll() {
                 patientIdInput.value = '';
                 currentNoduleId = DEFAULT_NODULE_ID;
+                transientNodules.clear();
                 noduleLocationInput.value = '';
                 tableData = [];
                 tableBody.innerHTML = '';
