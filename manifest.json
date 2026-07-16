@@ -1,21 +1,34 @@
 {
-    "name": "VDT Calculator",
-    "short_name": "VDT Calc",
-    "description": "A dynamic calculator for Volume Doubling Time of lung nodules.",
-    "start_url": ".",
-    "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#3498db",
-    "icons": [
-        {
-            "src": "https://placehold.co/192x192/3498db/ffffff?text=VDT",
-            "type": "image/png",
-            "sizes": "192x192"
-        },
-        {
-            "src": "https://placehold.co/512x512/3498db/ffffff?text=VDT",
-            "type": "image/png",
-            "sizes": "512x512"
-        }
-    ]
+  "id": "./",
+  "name": "VDT Calculator",
+  "short_name": "VDT Calc",
+  "description": "Volume doubling time calculator for longitudinal pulmonary nodule measurements.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#EEF1F4",
+  "theme_color": "#17364D",
+  "orientation": "any",
+  "categories": ["medical", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ]
 }
