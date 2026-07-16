@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.0"></script>
+    <script src="./vdt-core.js?v=3.3.1"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -168,6 +168,7 @@
             font-size: 0.82rem;
             font-weight: 600;
             color: var(--text-main);
+            white-space: nowrap;
         }
 
         .patient-id-container input {
@@ -179,7 +180,7 @@
             outline: none;
             transition: border-color 0.2s;
         }
-        .patient-id-container #nodule-id { width: 170px; }
+        .patient-id-container #nodule-location { width: 160px; }
         .patient-id-container input:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(23, 107, 115, 0.12);
@@ -190,6 +191,34 @@
             color: var(--text-light);
             font-size: 0.78rem;
         }
+
+        .nodule-switcher {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 34px;
+        }
+        .nodule-tabs { display: flex; align-items: center; gap: 6px; }
+        .nodule-tab {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border: 1px solid #BFC9D2;
+            border-radius: 50%;
+            background: #FFFFFF;
+            color: #53616E;
+            font-size: 0.78rem;
+            font-weight: 650;
+            cursor: pointer;
+        }
+        .nodule-tab:hover { border-color: #7F999F; background: #F4F8F8; }
+        .nodule-tab.active {
+            color: #FFFFFF;
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(23, 107, 115, 0.12);
+        }
+        .add-nodule-btn { height: 32px; min-width: 104px; padding: 5px 10px; white-space: nowrap; }
 
         /* --- Controls & Buttons --- */
         .table-controls {
@@ -384,22 +413,25 @@
         /* Column widths */
         .row-controls { width: 35px; }
         .baseline-col { width: 76px; min-width: 76px; }
-        .scan-number-col { width: 255px; min-width: 255px; font-weight: 600; color: var(--text-light); }
-        .scan-label-control { display: flex; align-items: center; gap: 5px; }
-        .scan-label-control .scan-label-input { min-width: 125px; }
-        .scan-label-picker {
-            width: 96px;
-            flex: none;
+        .scan-number-col { width: 185px; min-width: 185px; font-weight: 600; color: var(--text-light); }
+        .scan-label-select {
+            width: 100%;
             padding: 7px 5px;
             border: 1px solid #D5DCE3;
             border-radius: 4px;
             color: #40505D;
             background: #FFFFFF;
             font: inherit;
-            font-size: 0.76rem;
+            font-size: 0.8rem;
+            font-weight: 600;
             cursor: pointer;
         }
-        .scan-label-picker:focus { border-color: var(--primary-color); outline: none; }
+        .scan-label-select:focus { border-color: var(--primary-color); outline: none; }
+        .scan-label-select.is-anchor {
+            border-color: var(--primary-color);
+            background: #EDF6F6;
+            box-shadow: inset 3px 0 0 var(--primary-color);
+        }
 
         .extra-info {
             margin-top: 3px;
@@ -656,18 +688,6 @@
             padding-left: 20px;
         }
         
-        .scan-label-input {
-            font-weight: 600;
-            color: #40505D;
-        }
-        .scan-label-input:focus {
-            color: var(--primary-color);
-        }
-        .scan-label-input.is-anchor {
-            border-color: var(--primary-color);
-            background: #EDF6F6;
-            box-shadow: inset 3px 0 0 var(--primary-color);
-        }
         input[type="checkbox"] {
             accent-color: var(--primary-color);
         }
@@ -697,7 +717,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.0</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.1</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -714,8 +734,13 @@
         <div class="patient-id-container">
             <label for="patient-id">Patient ID</label>
             <input type="text" id="patient-id" placeholder="Enter ID to save or load" autocomplete="off" spellcheck="false">
-            <label for="nodule-id">Nodule ID</label>
-            <input type="text" id="nodule-id" value="Nodule 1" placeholder="e.g. RUL 1" autocomplete="off" spellcheck="false" title="Use a separate Nodule ID for each tracked nodule in the same patient.">
+            <label>Nodules</label>
+            <div class="nodule-switcher" aria-label="Nodules for this patient">
+                <div class="nodule-tabs" id="nodule-tabs"></div>
+                <button type="button" class="control-btn add-nodule-btn" id="add-nodule-btn">+ Add nodule</button>
+            </div>
+            <label for="nodule-location">Location</label>
+            <input type="text" id="nodule-location" placeholder="e.g. RUL #133" autocomplete="off" spellcheck="false">
             <span class="patient-id-hint">Stored locally in this browser. Use Backup for a portable copy.</span>
         </div>
 
@@ -778,13 +803,6 @@
             </table>
         </div>
 
-        <datalist id="scan-label-options">
-            <option value="Baseline"><option value="Baseline+3m"><option value="Baseline+6m"><option value="Baseline+9m">
-            <option value="1st Annual"><option value="1st Annual+3m"><option value="1st Annual+6m"><option value="1st Annual+9m">
-            <option value="2nd Annual"><option value="2nd Annual+3m"><option value="2nd Annual+6m"><option value="2nd Annual+9m">
-            <option value="Biennial"><option value="Biennial+3m"><option value="Biennial+6m"><option value="Biennial+9m">
-        </datalist>
-
         <div class="total-results-container" id="total-results-container">
             <!-- Totals injected via JS -->
         </div>
@@ -830,6 +848,7 @@
                             <th style="width: 50px;">Star</th>
                             <th>Patient ID</th>
                             <th>Nodule ID</th>
+                            <th>Location</th>
                             <th>Total VDT</th>
                             <th>Total VDT<sub>core</sub></th>
                             <th>Total VDT<sub>GGO</sub></th>
@@ -852,8 +871,19 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.3.0 - Multi-nodule Workflow</div>
+                    <div class="changelog-version">v3.3.1 - Nodule Switching</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>One clean label control:</strong> Replaced the duplicate label inputs with a single screening-round selector.</li>
+                            <li><strong>Compact VDT context:</strong> Shows days and volume change without repetitive labels.</li>
+                            <li><strong>Fast multi-nodule entry:</strong> Switch between #1, #2, and later nodules; Add nodule keeps scan dates and clears measurements.</li>
+                            <li><strong>Nodule location:</strong> Save identifiers such as RUL #133 and see them in the Worklist.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.0 - Multi-nodule Workflow</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Multiple nodules:</strong> Track separate Nodule IDs under one Patient ID and manage each one in the worklist.</li>
@@ -963,7 +993,9 @@
             const csvFileInput = document.getElementById('csv-file-input');
             const exportNewBtn = document.getElementById('export-new-btn');
             const patientIdInput = document.getElementById('patient-id');
-            const noduleIdInput = document.getElementById('nodule-id');
+            const noduleTabs = document.getElementById('nodule-tabs');
+            const addNoduleBtn = document.getElementById('add-nodule-btn');
+            const noduleLocationInput = document.getElementById('nodule-location');
             const totalResultsContainer = document.getElementById('total-results-container');
             const predictionResultsContainer = document.getElementById('prediction-results-container');
             const sortOrderSelect = document.getElementById('sort-order');
@@ -999,6 +1031,7 @@
             let uniqueRowId = 0;
             let tableData = [];
             let volumeChart = null;
+            let currentNoduleId = 'Nodule 1';
             const STORAGE_PREFIX = 'vdt-calc-';
             const NODULE_SEPARATOR = '::nodule::';
             const DEFAULT_NODULE_ID = 'Nodule 1';
@@ -1035,6 +1068,103 @@
                     patientId: data.patientId || keyPatientId,
                     noduleId: normalizeNoduleId(data.noduleId || keyNoduleId)
                 };
+            }
+
+            function getPatientNodules(patientId) {
+                const pid = String(patientId || '').trim();
+                const found = [];
+                if (!pid) return [DEFAULT_NODULE_ID];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (!key || !key.startsWith(STORAGE_PREFIX)) continue;
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        const identity = parseStoredIdentity(key, data || {});
+                        if (identity.patientId === pid && !found.includes(identity.noduleId)) found.push(identity.noduleId);
+                    } catch (error) {}
+                }
+                if (!found.length) found.push(DEFAULT_NODULE_ID);
+                return found.sort((a, b) => {
+                    const aNum = Number(a.match(/^Nodule (\d+)$/i)?.[1]);
+                    const bNum = Number(b.match(/^Nodule (\d+)$/i)?.[1]);
+                    if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum;
+                    if (Number.isFinite(aNum)) return -1;
+                    if (Number.isFinite(bNum)) return 1;
+                    return a.localeCompare(b);
+                });
+            }
+
+            function noduleDisplayLabel(noduleId, fallbackIndex = null) {
+                const match = normalizeNoduleId(noduleId).match(/^Nodule (\d+)$/i);
+                if (match) return `#${match[1]}`;
+                return fallbackIndex === null ? noduleId : `#${fallbackIndex + 1}`;
+            }
+
+            function renderNoduleTabs() {
+                const ids = getPatientNodules(patientIdInput.value);
+                if (!ids.includes(currentNoduleId)) ids.push(currentNoduleId);
+                noduleTabs.innerHTML = '';
+                ids.forEach((noduleId, index) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = `nodule-tab ${noduleId === currentNoduleId ? 'active' : ''}`;
+                    button.textContent = noduleDisplayLabel(noduleId, index);
+                    let location = '';
+                    try {
+                        const stored = JSON.parse(localStorage.getItem(getStorageKey(patientIdInput.value, noduleId)) || 'null');
+                        location = noduleId === currentNoduleId ? noduleLocationInput.value.trim() : (stored?.noduleLocation || '');
+                    } catch (error) {}
+                    button.title = `Show ${noduleId}${location ? ` · ${location}` : ''}`;
+                    button.setAttribute('aria-pressed', String(noduleId === currentNoduleId));
+                    button.addEventListener('click', () => switchNodule(noduleId));
+                    noduleTabs.appendChild(button);
+                });
+            }
+
+            function switchNodule(noduleId) {
+                if (noduleId === currentNoduleId) return;
+                const pid = patientIdInput.value.trim();
+                if (!pid) return;
+                saveData({ silent: true });
+                loadData(pid, noduleId);
+            }
+
+            function addNodule() {
+                const pid = patientIdInput.value.trim();
+                if (!pid) {
+                    alert('Please enter a Patient ID before adding another nodule.');
+                    patientIdInput.focus();
+                    return;
+                }
+                saveData({ silent: true });
+                const ids = getPatientNodules(pid);
+                const usedNumbers = ids
+                    .map(id => Number(id.match(/^Nodule (\d+)$/i)?.[1]))
+                    .filter(Number.isFinite);
+                const nextNumber = usedNumbers.length ? Math.max(...usedNumbers) + 1 : 1;
+                currentNoduleId = `Nodule ${nextNumber}`;
+                noduleLocationInput.value = '';
+                tableData = tableData.map(row => ({
+                    ...row,
+                    solid: '',
+                    core: '',
+                    nonsolid: ''
+                }));
+                newNoduleCheckbox.checked = false;
+                tableBody.innerHTML = '';
+                renderTable();
+                saveData({ silent: true });
+                renderNoduleTabs();
+                noduleLocationInput.focus();
+            }
+
+            function populateLabelSelect(select, dataRow) {
+                const current = dataRow.customLabel || 'Select label';
+                select.innerHTML = `<option value="" selected disabled>${VDTCore.escapeHtml(current)}</option><optgroup label="Set label anchor">${SCAN_LABEL_OPTIONS.map(label => `<option value="${label}">${label}</option>`).join('')}</optgroup>`;
+                select.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
+                select.title = dataRow.isLabelAnchor
+                    ? 'Label anchor: other scan labels are inferred from this date.'
+                    : 'Choose one known screening label; other scan labels will be inferred automatically.';
             }
 
             // --- UI Helpers ---
@@ -1080,13 +1210,7 @@
                         <input type="radio" name="baseline-group" class="baseline-radio" aria-label="Set this scan as Baseline" title="Set this scan as Baseline" ${dataRow.isBaseline ? 'checked' : ''}>
                     </td>
                     <td class="scan-number scan-number-col">
-                        <div class="scan-label-control">
-                            <input type="text" class="scan-label-input" list="scan-label-options" value="${safeAttr(dataRow.customLabel)}" placeholder="Screening label">
-                            <select class="scan-label-picker" aria-label="Choose screening-round anchor" title="Choose one known label; all other scan labels will be inferred from its date.">
-                                <option value="">Choose…</option>
-                                ${SCAN_LABEL_OPTIONS.map(label => `<option value="${label}">${label}</option>`).join('')}
-                            </select>
-                        </div>
+                        <select class="scan-label-select" aria-label="Screening round"></select>
                     </td>
                     <td><input type="text" class="date-input" value="${safeAttr(dataRow.date)}" placeholder="YYYY-MM-DD" inputmode="numeric"></td>
                     <td><input type="number" class="solid-input" value="${safeAttr(dataRow.solid)}" min="0" step="0.1"></td>
@@ -1176,50 +1300,26 @@
                     }
                 });
 
-                const labelInput = tr.querySelector('.scan-label-input');
-                const labelPicker = tr.querySelector('.scan-label-picker');
-                labelInput.addEventListener('input', (e) => {
-                     dataRow.customLabel = e.target.value;
-                });
-                const commitLabel = () => {
-                    const value = labelInput.value.trim();
+                const labelSelect = tr.querySelector('.scan-label-select');
+                populateLabelSelect(labelSelect, dataRow);
+                const commitLabel = (value) => {
                     const parsed = VDTCore.parseScanLabel(value);
-                    if (parsed) {
-                        tableData.forEach(row => {
-                            if (row.id !== dataRow.id && row.isLabelAnchor) {
-                                row.isLabelAnchor = false;
-                                if (VDTCore.parseScanLabel(row.customLabel)) row.labelSource = 'auto';
-                            }
-                        });
-                        dataRow.customLabel = parsed.canonical;
-                        dataRow.isLabelAnchor = true;
-                        dataRow.labelSource = 'manual';
-                    } else {
-                        dataRow.isLabelAnchor = false;
-                        dataRow.labelSource = value ? 'manual' : 'auto';
-                        dataRow.customLabel = value;
-                    }
+                    if (!parsed) return;
+                    tableData.forEach(row => {
+                        if (row.id !== dataRow.id && row.isLabelAnchor) {
+                            row.isLabelAnchor = false;
+                            if (VDTCore.parseScanLabel(row.customLabel)) row.labelSource = 'auto';
+                        }
+                    });
+                    dataRow.customLabel = parsed.canonical;
+                    dataRow.isLabelAnchor = true;
+                    dataRow.labelSource = 'manual';
                     updateScanLabels();
                     calculateAll();
                 };
-                labelInput.addEventListener('change', commitLabel);
-                labelInput.addEventListener('blur', commitLabel);
-                labelInput.addEventListener('focus', () => {
-                    if (dataRow.labelSource !== 'manual') labelInput.select();
-                });
-                labelInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        commitLabel();
-                        labelInput.blur();
-                    }
-                });
-                labelPicker.addEventListener('change', () => {
-                    if (!labelPicker.value) return;
-                    labelInput.value = labelPicker.value;
-                    commitLabel();
-                    labelPicker.value = '';
-                    labelInput.focus();
+                labelSelect.addEventListener('change', () => {
+                    commitLabel(labelSelect.value);
+                    populateLabelSelect(labelSelect, dataRow);
                 });
                 
                 return tr;
@@ -1232,12 +1332,8 @@
                 dateInp.classList.toggle('invalid-input', invalidDate);
                 dateInp.setAttribute('aria-invalid', String(invalidDate));
 
-                const labelInp = tr.querySelector('.scan-label-input');
-                if (document.activeElement !== labelInp) labelInp.value = dataRow.customLabel || '';
-                labelInp.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
-                labelInp.title = dataRow.isLabelAnchor
-                    ? 'Label anchor: other scan labels are inferred from this date.'
-                    : 'Type or choose one standard screening label to infer the other labels.';
+                const labelSelect = tr.querySelector('.scan-label-select');
+                populateLabelSelect(labelSelect, dataRow);
 
                 const safeVal = (v) => (v === undefined || v === null) ? '' : v;
                 const solidInp = tr.querySelector('.solid-input');
@@ -1285,9 +1381,8 @@
                         if (!dataRow.isLabelAnchor) dataRow.labelSource = 'auto';
                     }
 
-                    const input = tableBody.querySelector(`tr[data-id="${dataRow.id}"] .scan-label-input`);
-                    if (input && document.activeElement !== input) input.value = dataRow.customLabel || '';
-                    if (input) input.classList.toggle('is-anchor', Boolean(dataRow.isLabelAnchor));
+                    const select = tableBody.querySelector(`tr[data-id="${dataRow.id}"] .scan-label-select`);
+                    if (select) populateLabelSelect(select, dataRow);
                 });
             }
 
@@ -1316,7 +1411,8 @@
 
             function clearAll() {
                 patientIdInput.value = '';
-                noduleIdInput.value = DEFAULT_NODULE_ID;
+                currentNoduleId = DEFAULT_NODULE_ID;
+                noduleLocationInput.value = '';
                 tableData = [];
                 tableBody.innerHTML = '';
                 newNoduleCheckbox.checked = false;
@@ -1324,6 +1420,7 @@
                 predictionCheckbox.checked = false;
                 uniqueRowId = 0;
                 for(let i=0; i<4; i++) addScan();
+                renderNoduleTabs();
             }
 
             function format_date(event) {
@@ -1382,7 +1479,7 @@
                             if (!r.value) return '-';
                             let html = r.html;
                             if (isMaxCalc) html += '<sub>(max)</sub>';
-                            html += `<div class="extra-info">Interval: ${r.timeDiff}d · Change: ${r.volumeChange > 0 ? '+' : ''}${r.volumeChange}%</div>`;
+                            html += `<div class="extra-info" title="Time between scans · volume change">${r.timeDiff} days · volume ${r.volumeChange > 0 ? '+' : ''}${r.volumeChange}%</div>`;
                             return html;
                         };
                         row.querySelector('.vdt-solid-result').innerHTML = fmt(resS);
@@ -1413,7 +1510,7 @@
 
                     const boxHtml = (label, res, type) => {
                         const details = res && res.timeDiff !== null
-                            ? `<div class="extra-info">Total interval: ${res.timeDiff}d · Total change: ${res.volumeChange > 0 ? '+' : ''}${res.volumeChange}%</div>`
+                            ? `<div class="extra-info" title="Time from first to latest scan · total volume change">${res.timeDiff} days · volume ${res.volumeChange > 0 ? '+' : ''}${res.volumeChange}%</div>`
                             : '';
                         return `
                         <div class="total-result-box">
@@ -1753,7 +1850,7 @@
             // --- Export / Import CSV Data Migration ---
 
             function exportAllToCSV() {
-                const rows = [["PatientID", "NoduleID", "Date", "Solid", "SolidCore", "NonSolid", "Baseline", "CustomLabel", "LabelAnchor", "LabelSource", "Notes", "IsStarred", "NewNodule"]];
+                const rows = [["PatientID", "NoduleID", "NoduleLocation", "Date", "Solid", "SolidCore", "NonSolid", "Baseline", "CustomLabel", "LabelAnchor", "LabelSource", "Notes", "IsStarred", "NewNodule"]];
                 let hasData = false;
 
                 for (let i = 0; i < localStorage.length; i++) {
@@ -1769,6 +1866,7 @@
                                         rows.push([
                                             identity.patientId,
                                             identity.noduleId,
+                                            data.noduleLocation || '',
                                             row.date || '',
                                             row.solid || '',
                                             row.core || '',
@@ -1831,6 +1929,7 @@
                     const headers = rows[0].map(h => h.toLowerCase().trim());
                     const pidIdx = headers.findIndex(h => h.includes('patient'));
                     const noduleIdx = headers.findIndex(h => h === 'noduleid' || h === 'nodule id' || h === 'nodule');
+                    const noduleLocationIdx = headers.findIndex(h => h === 'nodulelocation' || h === 'nodule location' || h === 'location');
                     const dateIdx = headers.findIndex(h => h === 'date' || h.includes('scan date'));
                     const solidIdx = headers.findIndex(h => h === 'solid');
                     const coreIdx = headers.findIndex(h => h === 'core' || h === 'solidcore' || h === 'solid core');
@@ -1861,6 +1960,7 @@
                             importedData[groupKey] = {
                                 patientId: pid,
                                 noduleId,
+                                noduleLocation: noduleLocationIdx !== -1 ? cols[noduleLocationIdx] : '',
                                 tableData: [],
                                 notes: notesIdx !== -1 ? cols[notesIdx] : '',
                                 isStarred: starIdx !== -1 ? cols[starIdx] === 'true' : false,
@@ -1898,6 +1998,7 @@
                             ...existing,
                             patientId: pid,
                             noduleId,
+                            noduleLocation: importedRecord.noduleLocation || existing.noduleLocation || '',
                             tableData: newTableData,
                             notes: importedRecord.notes || existing.notes || '',
                             isStarred: importedRecord.isStarred !== undefined ? importedRecord.isStarred : (existing.isStarred || false),
@@ -1911,9 +2012,9 @@
 
                     alert(`成功导入/更新了 ${importCount} 个结节记录。 (Successfully imported ${importCount} nodule records.)`);
                     
-                    const currentGroupKey = JSON.stringify([patientIdInput.value.trim(), normalizeNoduleId(noduleIdInput.value)]);
+                    const currentGroupKey = JSON.stringify([patientIdInput.value.trim(), currentNoduleId]);
                     if (patientIdInput.value.trim() && importedData[currentGroupKey]) {
-                        loadData(patientIdInput.value.trim(), noduleIdInput.value);
+                        loadData(patientIdInput.value.trim(), currentNoduleId);
                     } else if (importCount === 1) {
                         const onlyRecord = importedData[Object.keys(importedData)[0]];
                         loadData(onlyRecord.patientId, onlyRecord.noduleId);
@@ -1957,7 +2058,7 @@
                 });
 
                 if (filteredPatients.length === 0) {
-                    patientListBody.innerHTML = `<tr><td colspan="8">No patient or nodule records found.</td></tr>`;
+                    patientListBody.innerHTML = `<tr><td colspan="9">No patient or nodule records found.</td></tr>`;
                 }
                 filteredPatients.forEach(patient => {
                     const tr = document.createElement('tr');
@@ -1984,7 +2085,8 @@
                     };
 
                     appendTextCell(patient.id);
-                    appendTextCell(patient.noduleId);
+                    appendTextCell(noduleDisplayLabel(patient.noduleId));
+                    appendTextCell(patient.noduleLocation || '—');
                     appendResultCell(patient.totals.solidVdtHtml);
                     appendResultCell(patient.totals.coreVdtHtml);
                     appendResultCell(patient.totals.ggoVdtHtml);
@@ -2073,11 +2175,10 @@
                 }
             }
 
-            function saveData() {
+            function saveData(options = {}) {
                 const pid = patientIdInput.value.trim();
                 if (!pid) { alert('Please enter a Patient ID.'); return false; }
-                const noduleId = normalizeNoduleId(noduleIdInput.value);
-                noduleIdInput.value = noduleId;
+                const noduleId = normalizeNoduleId(currentNoduleId);
                 const storageKey = getStorageKey(pid, noduleId);
                 let existing = {};
                 const str = localStorage.getItem(storageKey);
@@ -2085,27 +2186,31 @@
                     try { existing = JSON.parse(str); }
                     catch (error) { alert('The existing record is invalid and was not overwritten.'); return false; }
                 }
-                const data = { ...existing, patientId: pid, noduleId, tableData: tableData, isNewNodule: newNoduleCheckbox.checked, isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
+                const data = { ...existing, patientId: pid, noduleId, noduleLocation: noduleLocationInput.value.trim(), tableData: tableData, isNewNodule: newNoduleCheckbox.checked, isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
                 try {
                     localStorage.setItem(storageKey, JSON.stringify(data));
                 } catch (error) {
                     alert('Unable to save this record. Browser storage may be full or unavailable.');
                     return false;
                 }
-                const orig = saveBtn.textContent; saveBtn.textContent = 'Saved!'; setTimeout(() => saveBtn.textContent = orig, 2000);
+                renderNoduleTabs();
+                if (!options.silent) {
+                    const orig = saveBtn.textContent; saveBtn.textContent = 'Saved!'; setTimeout(() => saveBtn.textContent = orig, 2000);
+                }
                 return true;
             }
             function loadData(pid, noduleId) {
                 const id = pid || patientIdInput.value.trim();
                 if(!id) return;
-                const targetNoduleId = normalizeNoduleId(noduleId || noduleIdInput.value);
+                const targetNoduleId = normalizeNoduleId(noduleId || currentNoduleId);
                 const str = localStorage.getItem(getStorageKey(id, targetNoduleId));
                 if(str) {
                     let data;
                     try { data = JSON.parse(str); }
                     catch (error) { alert(`Unable to load ${id}: stored data is invalid.`); return; }
                     patientIdInput.value = id;
-                    noduleIdInput.value = normalizeNoduleId(data.noduleId || targetNoduleId);
+                    currentNoduleId = normalizeNoduleId(data.noduleId || targetNoduleId);
+                    noduleLocationInput.value = data.noduleLocation || '';
                     tableData = data.tableData || [];
                     newNoduleCheckbox.checked = data.isNewNodule || false;
                     logScaleCheckbox.checked = data.isLogScale || false;
@@ -2113,11 +2218,23 @@
                     uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d=>d.id)) + 1 : 0;
                     tableBody.innerHTML = ''; 
                     renderTable();
+                    renderNoduleTabs();
                 }
+            }
+            function loadPatient() {
+                const pid = patientIdInput.value.trim();
+                if (!pid) return;
+                const ids = getPatientNodules(pid);
+                const preferred = ids.includes(DEFAULT_NODULE_ID) ? DEFAULT_NODULE_ID : ids[0];
+                const hasStored = localStorage.getItem(getStorageKey(pid, preferred));
+                currentNoduleId = preferred;
+                if (hasStored) loadData(pid, preferred);
+                else renderNoduleTabs();
             }
             function saveAndNew() { if (saveData()) clearAll(); }
 
             addScanBtn.addEventListener('click', addScan);
+            addNoduleBtn.addEventListener('click', addNodule);
             clearBtn.addEventListener('click', clearAll);
             saveBtn.addEventListener('click', saveData);
             exportBtn.addEventListener('click', exportAllToCSV); // Attached new export
@@ -2127,10 +2244,9 @@
             importBtn.addEventListener('click', () => csvFileInput.click());
             csvFileInput.addEventListener('change', handleImportCSV);
             
-            patientIdInput.addEventListener('blur', () => loadData());
-            patientIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadData(); });
-            noduleIdInput.addEventListener('change', () => loadData());
-            noduleIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadData(); });
+            patientIdInput.addEventListener('blur', loadPatient);
+            patientIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadPatient(); });
+            noduleLocationInput.addEventListener('input', renderNoduleTabs);
             sortOrderSelect.addEventListener('change', renderTable);
             newNoduleCheckbox.addEventListener('change', calculateAll);
             logScaleCheckbox.addEventListener('change', calculateAll);
@@ -2151,6 +2267,7 @@
             function initializeEmptyCalculator() {
                 createTooltip();
                 tableData = []; uniqueRowId = 0; for(let i=0; i<4; i++) addScan();
+                renderNoduleTabs();
             }
             initializeEmptyCalculator();
 
