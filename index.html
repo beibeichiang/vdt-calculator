@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.4"></script>
+    <script src="./vdt-core.js?v=3.3.5"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -349,8 +349,9 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 0.84rem;
+            table-layout: fixed;
         }
-        #data-table { min-width: 1250px; }
+        #data-table { min-width: 0; }
 
         .data-table th {
             background-color: #F3F5F7;
@@ -358,14 +359,14 @@
             font-size: 0.72rem;
             font-weight: 650;
             letter-spacing: 0.025em;
-            padding: 9px 8px;
+            padding: 8px 4px;
             text-align: center;
             border-bottom: 1px solid var(--border-color);
             white-space: nowrap;
         }
 
         .data-table td {
-            padding: 5px 6px;
+            padding: 5px 3px;
             border-bottom: 1px solid var(--border-color);
             text-align: center;
             background-color: #fff;
@@ -376,7 +377,7 @@
 
         .data-table input[type="text"], .data-table input[type="number"] {
             width: 100%;
-            padding: 7px 5px;
+            padding: 7px 3px;
             border: 1px solid transparent; 
             border-radius: 4px;
             text-align: center;
@@ -426,11 +427,18 @@
         }
         
         /* Column widths */
-        .row-controls { width: 35px; }
-        .scan-number-col { width: 185px; min-width: 185px; font-weight: 600; color: var(--text-light); }
+        .row-controls { width: 28px; }
+        .scan-number-col { width: 156px; min-width: 0; font-weight: 600; color: var(--text-light); }
+        .data-table th:nth-child(3) { width: 104px; }
+        .data-table th:nth-child(4),
+        .data-table th:nth-child(5),
+        .data-table th:nth-child(6) { width: 92px; }
+        .data-table th:nth-child(7),
+        .data-table th:nth-child(8),
+        .data-table th:nth-child(9) { width: 116px; }
         .scan-label-trigger {
             width: 100%;
-            padding: 7px 8px;
+            padding: 7px 6px;
             border: 1px solid #D5DCE3;
             border-radius: 4px;
             color: #40505D;
@@ -778,7 +786,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.4</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.5</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -933,8 +941,17 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.3.4 - Faster Unsaved Nodule Entry</div>
+                    <div class="changelog-version">v3.3.5 - Compact Full-width Table</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Single-page width:</strong> Narrower columns keep the complete measurement and VDT table visible without horizontal clipping on a standard app window.</li>
+                            <li><strong>Compact interval details:</strong> Interval and volume change now use the concise format 742d｜+210%.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.4 - Faster Unsaved Nodule Entry</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>No Patient ID required:</strong> Add, switch, and remove nodules during an unsaved session; Reset clears the whole session.</li>
@@ -1639,6 +1656,13 @@
                 predictionResultsContainer.classList.add('hidden');
 
                 let firstSolid, firstCore, firstGgo; 
+                const compactIntervalDetails = (result) => {
+                    const change = Number(result.volumeChange);
+                    const changeText = Number.isFinite(change)
+                        ? `${change > 0 ? '+' : ''}${Number(change.toFixed(1))}%`
+                        : 'N/A';
+                    return `${result.timeDiff}d｜${changeText}`;
+                };
                 
                 for (let i = 1; i < dataForCalc.length; i++) {
                     const prev = dataForCalc[i - 1];
@@ -1665,7 +1689,7 @@
                             if (!r.value) return '-';
                             let html = r.html;
                             if (isMaxCalc) html += '<sub>(max)</sub>';
-                            html += `<div class="extra-info" title="Time between scans · volume change">${r.timeDiff} days · volume ${r.volumeChange > 0 ? '+' : ''}${r.volumeChange}%</div>`;
+                            html += `<div class="extra-info" title="Time between scans · volume change">${compactIntervalDetails(r)}</div>`;
                             return html;
                         };
                         row.querySelector('.vdt-solid-result').innerHTML = fmt(resS);
@@ -1696,7 +1720,7 @@
 
                     const boxHtml = (label, res, type) => {
                         const details = res && res.timeDiff !== null
-                            ? `<div class="extra-info" title="Time from first to latest scan · total volume change">${res.timeDiff} days · volume ${res.volumeChange > 0 ? '+' : ''}${res.volumeChange}%</div>`
+                            ? `<div class="extra-info" title="Time from first to latest scan · total volume change">${compactIntervalDetails(res)}</div>`
                             : '';
                         return `
                         <div class="total-result-box">
