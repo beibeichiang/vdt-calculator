@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.2"></script>
+    <script src="./vdt-core.js?v=3.3.3"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -778,7 +778,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.2</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.3</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -934,8 +934,16 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.3.2 - Hierarchical Screening Menu</div>
+                    <div class="changelog-version">v3.3.3 - Compact Two-scan Report</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Two-scan layout:</strong> When only one VDT interval exists, Copy Report places the VDT directly between the two volumes instead of adding a separate row.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.2 - Hierarchical Screening Menu</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Two-level labels:</strong> Choose a routine screening round directly or hover to select its +3m, +6m, or +9m repeat.</li>
@@ -1891,6 +1899,28 @@
                     if(i < dataForCalc.length -1) html += `<td style="${cellStyle}"></td>`;
                 });
                 html += '</tr>';
+
+                const formatIntervalVdt = (i) => {
+                    const curr = dataForCalc[i];
+                    const prev = dataForCalc[i + 1];
+                    const days = (curr.dateObj - prev.dateObj) / 86400000;
+                    const currentVolume = type === 'solid' ? curr.solid : (type === 'core' ? curr.core : curr.nonsolid);
+                    let previousVolume = type === 'solid' ? prev.solid : (type === 'core' ? prev.core : prev.nonsolid);
+                    const isMax = i + 1 === dataForCalc.length - 1 && isNewNodule;
+                    if (isMax) previousVolume = 15;
+
+                    const result = calculateSingleVDT(currentVolume, previousVolume, days, isMax);
+                    let display = result.value ? `${result.value}d` : 'N/A';
+                    if (result.html && result.html.includes('15mm')) display = 'N/A';
+                    else if (result.value === 'Stable') display = 'Stable';
+                    else if (parseFloat(result.value) > 0 && parseFloat(result.value) <= 400) display = `<b style="color:${VDT_COLORS.positive}">${display}</b>`;
+                    else if (parseFloat(result.value) > 400 && parseFloat(result.value) <= 600) display = `<b style="color:${VDT_COLORS.indeterminate}">${display}</b>`;
+                    else if (parseFloat(result.value) < 0 && parseFloat(result.value) >= -400) display = `<b style="color:${VDT_COLORS.shrinking}">${display}</b>`;
+
+                    let label = type === 'solid' ? 'VDT' : (type === 'core' ? 'VDT<sub>core</sub>' : 'VDT<sub>GGO</sub>');
+                    if (isMax) label += '<sub>(max)</sub>';
+                    return `${label}: ${display}`;
+                };
                 
                 // Volumes Row
                 html += '<tr>';
@@ -1901,41 +1931,27 @@
                     if (state === 'absent') volumeText = '';
                     else if (state === 'new' && !isNaN(v)) volumeText += ' (new)';
                     html += `<td style="${cellStyle}">${volumeText}</td>`;
-                    if(i < dataForCalc.length -1) html += `<td style="${cellStyle}"></td>`;
+                    if (i < dataForCalc.length - 1) {
+                        const betweenScans = dataForCalc.length === 2 ? formatIntervalVdt(i) : '';
+                        html += `<td style="${cellStyle}">${betweenScans}</td>`;
+                    }
                 });
                 html += '</tr>';
                 
-                // VDT Row
-                html += '<tr>';
-                for(let i=0; i<dataForCalc.length; i++) {
-                    if(i === dataForCalc.length -1) {
-                         html += `<td style="${cellStyle}"></td>`;
-                    } else {
-                         html += `<td style="${cellStyle}"></td>`; 
-                         const curr = dataForCalc[i]; const prev = dataForCalc[i+1];
-                         const d = (curr.dateObj - prev.dateObj)/86400000;
-                         let vc = type==='solid' ? curr.solid : (type==='core'?curr.core:curr.nonsolid);
-                         let vp = type==='solid' ? prev.solid : (type==='core'?prev.core:prev.nonsolid);
-                         
-                         let isMax = (i+1 === dataForCalc.length -1 && document.getElementById('new-nodule-checkbox').checked);
-                         if(isMax) vp = 15;
-                         
-                         const r = calculateSingleVDT(vc, vp, d, isMax);
-                         
-                         let dStr = r.value ? r.value + 'd' : 'N/A';
-                         if(r.html && r.html.includes('15mm')) dStr = 'N/A';
-                         else if(r.value === 'Stable') dStr = 'Stable';
-                         else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:${VDT_COLORS.positive}">${dStr}</b>`;
-                         else if(parseFloat(r.value) > 400 && parseFloat(r.value) <= 600) dStr = `<b style="color:${VDT_COLORS.indeterminate}">${dStr}</b>`;
-                         else if(parseFloat(r.value) < 0 && parseFloat(r.value) >= -400) dStr = `<b style="color:${VDT_COLORS.shrinking}">${dStr}</b>`;
-                         
-                         let l = type==='solid' ? 'VDT' : (type==='core'?'VDT<sub>core</sub>':'VDT<sub>GGO</sub>');
-                         if(isMax) l += '<sub>(max)</sub>';
-                         
-                         html += `<td style="${cellStyle}">${l}: ${dStr}</td>`;
+                // Multi-scan reports keep a separate row for each interval.
+                if (dataForCalc.length > 2) {
+                    html += '<tr>';
+                    for (let i = 0; i < dataForCalc.length; i++) {
+                        if (i === dataForCalc.length - 1) {
+                            html += `<td style="${cellStyle}"></td>`;
+                        } else {
+                            html += `<td style="${cellStyle}"></td>`;
+                            html += `<td style="${cellStyle}">${formatIntervalVdt(i)}</td>`;
+                        }
                     }
+                    html += '</tr>';
                 }
-                html += '</tr></table>';
+                html += '</table>';
                 
                 const t = document.createElement('div');
                 t.innerHTML = html;
