@@ -379,7 +379,7 @@
         /* Column widths */
         .row-controls { width: 35px; }
         .baseline-col { width: 35px; }
-        .scan-number-col { width: 130px; font-weight: 600; color: var(--text-light); }
+        .scan-number-col { width: 190px; min-width: 190px; font-weight: 600; color: var(--text-light); }
         
         .baseline-radio {
             cursor: pointer;
@@ -416,18 +416,17 @@
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             padding: 13px 14px;
-            text-align: left;
+            text-align: center;
         }
 
         .total-result-box {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            column-gap: 12px;
-            row-gap: 2px;
+            justify-content: center;
+            gap: 5px;
         }
-        .total-result-box .label, .total-result-box .value { grid-column: 1; }
-        .total-result-box .copy-btn { grid-column: 2; grid-row: 1 / span 2; }
+        .total-result-box .copy-btn { margin-top: 2px; }
         
         .prediction-results-container .prediction-result-box {
             background-color: #F7F9FB;
@@ -643,9 +642,12 @@
         .volume-input-wrap {
             display: flex;
             align-items: center;
-            gap: 4px;
+            justify-content: center;
+            gap: 6px;
         }
-        .volume-input-wrap input {
+        .data-table .volume-input-wrap input {
+            width: 72px;
+            flex: 0 0 72px;
             min-width: 0;
         }
         .new-nodule-badge {
@@ -684,7 +686,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.2</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.2.1</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
