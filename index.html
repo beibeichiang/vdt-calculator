@@ -23,6 +23,9 @@
             --accent-red: #B42318;
             --accent-blue: #175CD3;
             --warning-color: #B54708;
+            --vdt-positive: #d9534f;
+            --vdt-indeterminate: #f39c12;
+            --vdt-shrinking: #3498db;
             --navy: #17364D;
             --bg-color: #EEF1F4;
             --card-bg: #ffffff;
@@ -569,9 +572,9 @@
 
         /* Utility */
         .hidden { display: none !important; }
-        .vdt-positive { color: #B42318; }
-        .vdt-indeterminate { color: #B54708; }
-        .vdt-shrinking { color: #175CD3; }
+        .vdt-positive { color: var(--vdt-positive); }
+        .vdt-indeterminate { color: var(--vdt-indeterminate); }
+        .vdt-shrinking { color: var(--vdt-shrinking); }
         
         /* Tooltip */
         .tooltip-icon {
@@ -668,7 +671,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.2.3</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.2.4</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -820,8 +823,16 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.2.3 - Baseline &amp; Icon</div>
+                    <div class="changelog-version">v3.2.4 - VDT Color Standard</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Consistent clinical colors:</strong> Restored the established red, orange, and blue VDT color codes across the table, reports, totals, and worklist.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.2.3 - Baseline &amp; Icon</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>One-click Baseline:</strong> Restored the radio selector with its full name and kept label editing frictionless.</li>
@@ -921,6 +932,12 @@
             const chartCanvas = document.getElementById('volumeChart');
             const chartUnavailable = document.getElementById('chart-unavailable');
             const container = document.querySelector('.container');
+            const rootStyles = getComputedStyle(document.documentElement);
+            const VDT_COLORS = Object.freeze({
+                positive: rootStyles.getPropertyValue('--vdt-positive').trim(),
+                indeterminate: rootStyles.getPropertyValue('--vdt-indeterminate').trim(),
+                shrinking: rootStyles.getPropertyValue('--vdt-shrinking').trim()
+            });
             
             // Modal elements
             const managePatientsBtn = document.getElementById('manage-patients-btn');
@@ -1547,9 +1564,9 @@
                 
                 let disp = res.value ? res.value + 'd' : 'N/A';
                 if(res.value === 'Stable') disp = 'Stable';
-                else if(parseFloat(res.value) > 0 && parseFloat(res.value) <= 400) disp = `<b style="color:red">${disp}</b>`;
-                else if(parseFloat(res.value) > 400 && parseFloat(res.value) <= 600) disp = `<b style="color:orange">${disp}</b>`;
-                else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:#3498db">${disp}</b>`;
+                else if(parseFloat(res.value) > 0 && parseFloat(res.value) <= 400) disp = `<b style="color:${VDT_COLORS.positive}">${disp}</b>`;
+                else if(parseFloat(res.value) > 400 && parseFloat(res.value) <= 600) disp = `<b style="color:${VDT_COLORS.indeterminate}">${disp}</b>`;
+                else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:${VDT_COLORS.shrinking}">${disp}</b>`;
                 else disp = `<b>${disp}</b>`;
                 
                 if (VDTCore.shouldShowTotalInReport(dataForCalc.length, isNewNodule)) {
@@ -1598,9 +1615,9 @@
                          let dStr = r.value ? r.value + 'd' : 'N/A';
                          if(r.html && r.html.includes('15mm')) dStr = 'N/A';
                          else if(r.value === 'Stable') dStr = 'Stable';
-                         else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:red">${dStr}</b>`;
-                         else if(parseFloat(r.value) > 400 && parseFloat(r.value) <= 600) dStr = `<b style="color:orange">${dStr}</b>`;
-                         else if(parseFloat(r.value) < 0 && parseFloat(r.value) >= -400) dStr = `<b style="color:#3498db">${dStr}</b>`;
+                         else if(parseFloat(r.value) > 0 && parseFloat(r.value) <= 400) dStr = `<b style="color:${VDT_COLORS.positive}">${dStr}</b>`;
+                         else if(parseFloat(r.value) > 400 && parseFloat(r.value) <= 600) dStr = `<b style="color:${VDT_COLORS.indeterminate}">${dStr}</b>`;
+                         else if(parseFloat(r.value) < 0 && parseFloat(r.value) >= -400) dStr = `<b style="color:${VDT_COLORS.shrinking}">${dStr}</b>`;
                          
                          let l = type==='solid' ? 'VDT' : (type==='core'?'VDT<sub>core</sub>':'VDT<sub>GGO</sub>');
                          if(isMax) l += '<sub>(max)</sub>';
@@ -1904,9 +1921,9 @@
                     let styledHtml = display;
                     const vdtNum = parseFloat(result.value);
                     if (result.value && result.value !== 'Stable') {
-                        if (vdtNum > 0 && vdtNum <= 400) styledHtml = `<strong style="color: #d9534f;">${display}</strong>`;
-                        else if (vdtNum > 400 && vdtNum <= 600) styledHtml = `<strong style="color: #f0ad4e;">${display}</strong>`;
-                        else if (vdtNum < 0 && vdtNum >= -400) styledHtml = `<strong style="color: #175CD3;">${display}</strong>`;
+                        if (vdtNum > 0 && vdtNum <= 400) styledHtml = `<strong style="color: ${VDT_COLORS.positive};">${display}</strong>`;
+                        else if (vdtNum > 400 && vdtNum <= 600) styledHtml = `<strong style="color: ${VDT_COLORS.indeterminate};">${display}</strong>`;
+                        else if (vdtNum < 0 && vdtNum >= -400) styledHtml = `<strong style="color: ${VDT_COLORS.shrinking};">${display}</strong>`;
                     }
                     return { html: styledHtml, numeric: vdtNum };
                 }
