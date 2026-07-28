@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.6"></script>
+    <script src="./vdt-core.js?v=3.3.7"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -786,7 +786,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.6</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.7</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -941,8 +941,16 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.3.6 - New-nodule Appearance Detection</div>
+                    <div class="changelog-version">v3.3.7 - Cleaner Copy Report</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Concise Total VDT:</strong> Copy Report keeps the Total VDT value but omits redundant total interval and total change details.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.6 - New-nodule Appearance Detection</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Correct VDTmax interval:</strong> A new nodule is anchored to the first scan containing a valid volume, using the immediately preceding scan date for VDTmax.</li>
@@ -2000,9 +2008,7 @@
                 else disp = `<b>${disp}</b>`;
                 
                 if (VDTCore.shouldShowTotalInReport(measuredScans.length, isNewNodule)) {
-                    const totalChange = res.volumeChange === null ? '' : `${res.volumeChange > 0 ? '+' : ''}${res.volumeChange}%`;
-                    const totalDetails = res.timeDiff === null ? '' : ` (total interval: ${res.timeDiff}d; total change: ${totalChange})`;
-                    html += `<tr><td colspan="${numCols}" style="${cellStyle}">${lbl}: ${disp}${totalDetails}</td></tr>`;
+                    html += `<tr><td colspan="${numCols}" style="${cellStyle}">${lbl}: ${disp}</td></tr>`;
                 }
                 
                 // Scans Row
