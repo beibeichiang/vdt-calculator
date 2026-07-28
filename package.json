@@ -1,7 +1,7 @@
 {
   "name": "vdt-calculator",
   "private": true,
-  "version": "3.3.6",
+  "version": "3.3.7",
   "scripts": {
     "test": "node --test"
   }
