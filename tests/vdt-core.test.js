@@ -9,6 +9,7 @@ const {
     parseScanLabel,
     inferScanLabels,
     shouldShowTotalInReport,
+    findFirstMeasuredIndex,
     getNewNoduleReportState
 } = require('../vdt-core.js');
 
@@ -140,13 +141,24 @@ test('scan labels fall back to relative scan numbers without an anchor', () => {
 test('report total requires at least two regular VDT intervals', () => {
     assert.equal(shouldShowTotalInReport(2, false), false);
     assert.equal(shouldShowTotalInReport(3, false), true);
-    assert.equal(shouldShowTotalInReport(3, true), false);
+    assert.equal(shouldShowTotalInReport(2, true), false);
+    assert.equal(shouldShowTotalInReport(3, true), true);
     assert.equal(shouldShowTotalInReport(4, true), true);
 });
 
-test('new nodule report state hides the absent volume and marks first appearance', () => {
-    assert.equal(getNewNoduleReportState(3, 4, true), 'absent');
-    assert.equal(getNewNoduleReportState(2, 4, true), 'new');
-    assert.equal(getNewNoduleReportState(1, 4, true), 'measured');
-    assert.equal(getNewNoduleReportState(1, 2, false), 'measured');
+test('new nodule appearance follows the first measured scan rather than the first interval', () => {
+    const oldestFirst = [
+        { core: NaN },
+        { core: NaN },
+        { core: 10668.3 },
+        { core: 5927.3 }
+    ];
+    assert.equal(findFirstMeasuredIndex(oldestFirst, 'core'), 2);
+
+    const newestFirstAppearanceIndex = 1;
+    assert.equal(getNewNoduleReportState(3, newestFirstAppearanceIndex, true), 'absent');
+    assert.equal(getNewNoduleReportState(2, newestFirstAppearanceIndex, true), 'absent');
+    assert.equal(getNewNoduleReportState(1, newestFirstAppearanceIndex, true), 'new');
+    assert.equal(getNewNoduleReportState(0, newestFirstAppearanceIndex, true), 'measured');
+    assert.equal(getNewNoduleReportState(1, newestFirstAppearanceIndex, false), 'measured');
 });

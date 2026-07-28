@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.5"></script>
+    <script src="./vdt-core.js?v=3.3.6"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -786,7 +786,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.5</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.6</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -941,8 +941,17 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.3.5 - Compact Full-width Table</div>
+                    <div class="changelog-version">v3.3.6 - New-nodule Appearance Detection</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Correct VDTmax interval:</strong> A new nodule is anchored to the first scan containing a valid volume, using the immediately preceding scan date for VDTmax.</li>
+                            <li><strong>Accurate reports:</strong> Scans before the first appearance stay blank, while subsequent intervals use regular VDT.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.5 - Compact Full-width Table</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Single-page width:</strong> Narrower columns keep the complete measurement and VDT table visible without horizontal clipping on a standard app window.</li>
@@ -1655,7 +1664,11 @@
                 totalResultsContainer.innerHTML = '';
                 predictionResultsContainer.classList.add('hidden');
 
-                let firstSolid, firstCore, firstGgo; 
+                const volumeTypes = ['solid', 'core', 'nonsolid'];
+                const appearanceIndexes = Object.fromEntries(
+                    volumeTypes.map(type => [type, VDTCore.findFirstMeasuredIndex(dataForCalc, type)])
+                );
+                const maxResults = {};
                 const compactIntervalDetails = (result) => {
                     const change = Number(result.volumeChange);
                     const changeText = Number.isFinite(change)
@@ -1667,24 +1680,27 @@
                 for (let i = 1; i < dataForCalc.length; i++) {
                     const prev = dataForCalc[i - 1];
                     const curr = dataForCalc[i];
-                    const isFirst = (i === 1);
-                    const isMaxCalc = (isFirst && isNewNodule);
+                    const isSolidMax = isNewNodule && i === appearanceIndexes.solid && i > 0;
+                    const isCoreMax = isNewNodule && i === appearanceIndexes.core && i > 0;
+                    const isGgoMax = isNewNodule && i === appearanceIndexes.nonsolid && i > 0;
 
-                    const prevSolid = isMaxCalc ? 15 : prev.solid;
-                    const prevCore = isMaxCalc ? 15 : prev.core;
-                    const prevGgo = isMaxCalc ? 15 : prev.nonsolid;
+                    const prevSolid = isSolidMax ? 15 : prev.solid;
+                    const prevCore = isCoreMax ? 15 : prev.core;
+                    const prevGgo = isGgoMax ? 15 : prev.nonsolid;
                     
                     const tDiff = (curr.dateObj - prev.dateObj) / (86400000); 
                     
-                    const resS = calculateSingleVDT(curr.solid, prevSolid, tDiff, isMaxCalc);
-                    const resC = calculateSingleVDT(curr.core, prevCore, tDiff, isMaxCalc);
-                    const resG = calculateSingleVDT(curr.nonsolid, prevGgo, tDiff, isMaxCalc);
+                    const resS = calculateSingleVDT(curr.solid, prevSolid, tDiff, isSolidMax);
+                    const resC = calculateSingleVDT(curr.core, prevCore, tDiff, isCoreMax);
+                    const resG = calculateSingleVDT(curr.nonsolid, prevGgo, tDiff, isGgoMax);
 
-                    if (isFirst) { firstSolid = resS; firstCore = resC; firstGgo = resG; }
+                    if (isSolidMax) maxResults.solid = resS;
+                    if (isCoreMax) maxResults.core = resC;
+                    if (isGgoMax) maxResults.nonsolid = resG;
 
                     const row = Array.from(tableBody.querySelectorAll('tr')).find(r => parseInt(r.dataset.id) === curr.id);
                     if (row) {
-                        const fmt = (r) => {
+                        const fmt = (r, isMaxCalc) => {
                             if (!r.value && r.html.includes('N/A')) return r.html;
                             if (!r.value) return '-';
                             let html = r.html;
@@ -1692,9 +1708,9 @@
                             html += `<div class="extra-info" title="Time between scans · volume change">${compactIntervalDetails(r)}</div>`;
                             return html;
                         };
-                        row.querySelector('.vdt-solid-result').innerHTML = fmt(resS);
-                        row.querySelector('.vdt-core-result').innerHTML = fmt(resC);
-                        row.querySelector('.vdt-ggo-result').innerHTML = fmt(resG);
+                        row.querySelector('.vdt-solid-result').innerHTML = fmt(resS, isSolidMax);
+                        row.querySelector('.vdt-core-result').innerHTML = fmt(resC, isCoreMax);
+                        row.querySelector('.vdt-ggo-result').innerHTML = fmt(resG, isGgoMax);
                     }
                     
                     curr.vdtSolid = resS.value;
@@ -1704,19 +1720,22 @@
 
                 let totalS, totalC, totalG;
                 if (dataForCalc.length > 1) {
-                    const start = (isNewNodule && dataForCalc.length > 1) ? dataForCalc[1] : dataForCalc[0];
-                    const end = dataForCalc[dataForCalc.length - 1];
-                    const tDiff = (end.dateObj - start.dateObj) / 86400000;
-                    
-                    totalS = calculateSingleVDT(end.solid, start.solid, tDiff);
-                    totalC = calculateSingleVDT(end.core, start.core, tDiff);
-                    totalG = calculateSingleVDT(end.nonsolid, start.nonsolid, tDiff);
+                    const totalForType = (type) => {
+                        const measuredIndexes = dataForCalc
+                            .map((scan, index) => VDTCore.isMeasuredVolume(scan[type]) ? index : -1)
+                            .filter(index => index !== -1);
+                        if (!measuredIndexes.length) return calculateSingleVDT('', '', 0);
+                        const startIndex = measuredIndexes[0];
+                        const endIndex = measuredIndexes[measuredIndexes.length - 1];
+                        if (startIndex === endIndex) return isNewNodule ? (maxResults[type] || calculateSingleVDT('', '', 0)) : calculateSingleVDT('', '', 0);
+                        const start = dataForCalc[startIndex];
+                        const end = dataForCalc[endIndex];
+                        return calculateSingleVDT(end[type], start[type], (end.dateObj - start.dateObj) / 86400000);
+                    };
 
-                    if (isNewNodule && dataForCalc.length === 2) {
-                        totalS = firstSolid;
-                        totalC = firstCore;
-                        totalG = firstGgo;
-                    }
+                    totalS = totalForType('solid');
+                    totalC = totalForType('core');
+                    totalG = totalForType('nonsolid');
 
                     const boxHtml = (label, res, type) => {
                         const details = res && res.timeDiff !== null
@@ -1741,9 +1760,9 @@
                     predictionResultsContainer.classList.remove('hidden');
                     const last = dataForCalc[dataForCalc.length - 1];
                     
-                    let vdtS = (isNewNodule && dataForCalc.length === 2) ? firstSolid : totalS;
-                    let vdtC = (isNewNodule && dataForCalc.length === 2) ? firstCore : totalC;
-                    let vdtG = (isNewNodule && dataForCalc.length === 2) ? firstGgo : totalG;
+                    let vdtS = totalS;
+                    let vdtC = totalC;
+                    let vdtG = totalG;
 
                     const calcPred = (vdtRes, startVol) => {
                         if (!vdtRes || !vdtRes.value || vdtRes.value === 'Stable' || parseFloat(vdtRes.value) <= 0) return { m3: 'N/A', y1: 'N/A' };
@@ -1949,15 +1968,20 @@
                 
                 let v1, v2, lbl;
                 const isNewNodule = document.getElementById('new-nodule-checkbox').checked;
-                
-                let startScanForTotal = first;
-                let useNewNoduleMaximum = false;
-                if (isNewNodule && dataForCalc.length > 1) {
-                    if (dataForCalc.length === 2) {
-                        useNewNoduleMaximum = true;
-                    } else {
-                        startScanForTotal = dataForCalc[dataForCalc.length - 2];
+                const volumeKey = type === 'solid' ? 'solid' : (type === 'core' ? 'core' : 'nonsolid');
+                const appearanceIndex = (() => {
+                    for (let i = dataForCalc.length - 1; i >= 0; i--) {
+                        if (VDTCore.isMeasuredVolume(dataForCalc[i][volumeKey])) return i;
                     }
+                    return -1;
+                })();
+                const measuredScans = dataForCalc.filter(scan => VDTCore.isMeasuredVolume(scan[volumeKey]));
+                
+                let startScanForTotal = measuredScans[measuredScans.length - 1] || first;
+                let useNewNoduleMaximum = false;
+                if (isNewNodule && measuredScans.length === 1 && appearanceIndex >= 0 && appearanceIndex < dataForCalc.length - 1) {
+                    useNewNoduleMaximum = true;
+                    startScanForTotal = dataForCalc[appearanceIndex + 1];
                 }
                 
                 const totalDiff = (last.dateObj - startScanForTotal.dateObj) / 86400000;
@@ -1975,7 +1999,7 @@
                 else if(parseFloat(res.value) < 0 && parseFloat(res.value) >= -400) disp = `<b style="color:${VDT_COLORS.shrinking}">${disp}</b>`;
                 else disp = `<b>${disp}</b>`;
                 
-                if (VDTCore.shouldShowTotalInReport(dataForCalc.length, isNewNodule)) {
+                if (VDTCore.shouldShowTotalInReport(measuredScans.length, isNewNodule)) {
                     const totalChange = res.volumeChange === null ? '' : `${res.volumeChange > 0 ? '+' : ''}${res.volumeChange}%`;
                     const totalDetails = res.timeDiff === null ? '' : ` (total interval: ${res.timeDiff}d; total change: ${totalChange})`;
                     html += `<tr><td colspan="${numCols}" style="${cellStyle}">${lbl}: ${disp}${totalDetails}</td></tr>`;
@@ -1996,7 +2020,8 @@
                     const days = (curr.dateObj - prev.dateObj) / 86400000;
                     const currentVolume = type === 'solid' ? curr.solid : (type === 'core' ? curr.core : curr.nonsolid);
                     let previousVolume = type === 'solid' ? prev.solid : (type === 'core' ? prev.core : prev.nonsolid);
-                    const isMax = i + 1 === dataForCalc.length - 1 && isNewNodule;
+                    const isMax = isNewNodule && i === appearanceIndex && i < dataForCalc.length - 1;
+                    if (!VDTCore.isMeasuredVolume(currentVolume)) return '';
                     if (isMax) previousVolume = 15;
 
                     const result = calculateSingleVDT(currentVolume, previousVolume, days, isMax);
@@ -2016,7 +2041,7 @@
                 html += '<tr>';
                 dataForCalc.forEach((s, i) => {
                     let v = type==='solid' ? s.solid : (type==='core' ? s.core : s.nonsolid);
-                    const state = VDTCore.getNewNoduleReportState(i, dataForCalc.length, isNewNodule);
+                    const state = VDTCore.getNewNoduleReportState(i, appearanceIndex, isNewNodule);
                     let volumeText = isNaN(v) ? 'N/A' : `${v.toFixed(0)} mm³`;
                     if (state === 'absent') volumeText = '';
                     else if (state === 'new' && !isNaN(v)) volumeText += ' (new)';
@@ -2340,16 +2365,27 @@
                 if (!pTableData || pTableData.length < 2) return baseReturn;
                 const dataForCalc = pTableData.map(d => ({...d, dateObj: parseDateString(d.date), solid: parseFloat(d.solid), core: parseFloat(d.core), nonsolid: parseFloat(d.nonsolid) })).filter(d => d.dateObj).sort((a, b) => a.dateObj - b.dateObj);
                 if (dataForCalc.length < 2) return baseReturn;
-                const useNewNoduleMaximum = pIsNewNodule && dataForCalc.length === 2;
-                const firstForTotal = (pIsNewNodule && dataForCalc.length > 2) ? dataForCalc[1] : dataForCalc[0];
-                const last = dataForCalc[dataForCalc.length - 1];
-                const totalTimeDiff = (last.dateObj - firstForTotal.dateObj) / (1000 * 60 * 60 * 24);
-                const baselineSolid = useNewNoduleMaximum ? 15 : firstForTotal.solid;
-                const baselineCore = useNewNoduleMaximum ? 15 : firstForTotal.core;
-                const baselineGgo = useNewNoduleMaximum ? 15 : firstForTotal.nonsolid;
-                const solidResult = calculateSingleVDT(last.solid, baselineSolid, totalTimeDiff, useNewNoduleMaximum);
-                const coreResult = calculateSingleVDT(last.core, baselineCore, totalTimeDiff, useNewNoduleMaximum);
-                const ggoResult = calculateSingleVDT(last.nonsolid, baselineGgo, totalTimeDiff, useNewNoduleMaximum);
+                const totalForType = (type) => {
+                    const measuredIndexes = dataForCalc
+                        .map((scan, index) => VDTCore.isMeasuredVolume(scan[type]) ? index : -1)
+                        .filter(index => index !== -1);
+                    if (!measuredIndexes.length) return calculateSingleVDT('', '', 0);
+                    const firstIndex = measuredIndexes[0];
+                    const lastIndex = measuredIndexes[measuredIndexes.length - 1];
+                    const firstMeasured = dataForCalc[firstIndex];
+                    const lastMeasured = dataForCalc[lastIndex];
+                    if (firstIndex === lastIndex) {
+                        if (!pIsNewNodule || firstIndex === 0) return calculateSingleVDT('', '', 0);
+                        const priorScan = dataForCalc[firstIndex - 1];
+                        const interval = (firstMeasured.dateObj - priorScan.dateObj) / 86400000;
+                        return calculateSingleVDT(firstMeasured[type], 15, interval, true);
+                    }
+                    const totalInterval = (lastMeasured.dateObj - firstMeasured.dateObj) / 86400000;
+                    return calculateSingleVDT(lastMeasured[type], firstMeasured[type], totalInterval);
+                };
+                const solidResult = totalForType('solid');
+                const coreResult = totalForType('core');
+                const ggoResult = totalForType('nonsolid');
                 const formatVdtForManager = (result) => {
                     if (!result || !result.value) return { html: '-', numeric: null };
                     let display = result.value === 'Stable' ? 'Stable' : `${result.value}d`;

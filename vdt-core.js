@@ -265,13 +265,23 @@
     }
 
     function shouldShowTotalInReport(scanCount, isNewNodule) {
-        return Number(scanCount) >= (isNewNodule ? 4 : 3);
+        return Number(scanCount) >= 3;
     }
 
-    function getNewNoduleReportState(newestFirstIndex, scanCount, isNewNodule) {
-        if (!isNewNodule || scanCount < 2) return 'measured';
-        if (newestFirstIndex === scanCount - 1) return 'absent';
-        if (newestFirstIndex === scanCount - 2) return 'new';
+    function isMeasuredVolume(value) {
+        const volume = Number(value);
+        return Number.isFinite(volume) && volume > 0;
+    }
+
+    function findFirstMeasuredIndex(scans, volumeKey) {
+        if (!Array.isArray(scans)) return -1;
+        return scans.findIndex(scan => isMeasuredVolume(scan && scan[volumeKey]));
+    }
+
+    function getNewNoduleReportState(newestFirstIndex, appearanceIndex, isNewNodule) {
+        if (!isNewNodule || appearanceIndex < 0) return 'measured';
+        if (newestFirstIndex > appearanceIndex) return 'absent';
+        if (newestFirstIndex === appearanceIndex) return 'new';
         return 'measured';
     }
 
@@ -284,6 +294,8 @@
         parseScanLabel,
         inferScanLabels,
         shouldShowTotalInReport,
+        isMeasuredVolume,
+        findFirstMeasuredIndex,
         getNewNoduleReportState
     };
 });
