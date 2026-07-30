@@ -833,11 +833,6 @@
                 </div>
 
                 <div class="new-nodule-control">
-                    <input type="checkbox" id="new-nodule-checkbox">
-                    <label for="new-nodule-checkbox" id="new-nodule-label">New nodule · Auto VDTmax</label>
-                    <span class="tooltip-icon" data-tooltip="Automatically detected when a volume first appears after an earlier dated scan. Check only to force New nodule mode manually. The hidden VDTmax threshold is 15 mm³.">?</span>
-                </div>
-                <div class="new-nodule-control">
                     <input type="checkbox" id="log-scale-checkbox">
                     <label for="log-scale-checkbox">Log scale</label>
                     <span class="tooltip-icon" data-tooltip="Use logarithmic scale for Y-axis.">?</span>
@@ -1139,8 +1134,6 @@
             const totalResultsContainer = document.getElementById('total-results-container');
             const predictionResultsContainer = document.getElementById('prediction-results-container');
             const sortOrderSelect = document.getElementById('sort-order');
-            const newNoduleCheckbox = document.getElementById('new-nodule-checkbox');
-            const newNoduleLabel = document.getElementById('new-nodule-label');
             const logScaleCheckbox = document.getElementById('log-scale-checkbox');
             const predictionCheckbox = document.getElementById('prediction-checkbox');
             const chartCanvas = document.getElementById('volumeChart');
@@ -1252,7 +1245,6 @@
                 transientNodules.set(currentNoduleId, {
                     noduleLocation: noduleLocationInput.value.trim(),
                     tableData: tableData.map(row => ({ ...row })),
-                    isNewNodule: newNoduleCheckbox.checked,
                     isLogScale: logScaleCheckbox.checked,
                     isPrediction: predictionCheckbox.checked
                 });
@@ -1264,7 +1256,6 @@
                 currentNoduleId = noduleId;
                 noduleLocationInput.value = data.noduleLocation || '';
                 tableData = (data.tableData || []).map(row => ({ ...row }));
-                newNoduleCheckbox.checked = Boolean(data.isNewNodule);
                 logScaleCheckbox.checked = Boolean(data.isLogScale);
                 predictionCheckbox.checked = Boolean(data.isPrediction);
                 uniqueRowId = tableData.length ? Math.max(...tableData.map(row => row.id)) + 1 : 0;
@@ -1337,7 +1328,6 @@
                     core: '',
                     nonsolid: ''
                 }));
-                newNoduleCheckbox.checked = false;
                 tableBody.innerHTML = '';
                 renderTable();
                 if (pid) saveData({ silent: true });
@@ -1651,7 +1641,6 @@
                 noduleLocationInput.value = '';
                 tableData = [];
                 tableBody.innerHTML = '';
-                newNoduleCheckbox.checked = false;
                 logScaleCheckbox.checked = false;
                 predictionCheckbox.checked = false;
                 uniqueRowId = 0;
@@ -1678,18 +1667,11 @@
             }
 
             function calculateAll() {
-                const manualNewNodule = newNoduleCheckbox.checked;
                 const dataForCalc = tableData
                     .map(d => ({...d, dateObj: parseDateString(d.date), solid: parseFloat(d.solid), core: parseFloat(d.core), nonsolid: parseFloat(d.nonsolid) }))
                     .filter(d => d.dateObj)
                     .sort((a, b) => a.dateObj - b.dateObj);
-                const autoNewNodule = VDTCore.detectNewNodule(dataForCalc);
-                const isNewNodule = manualNewNodule || autoNewNodule;
-
-                newNoduleCheckbox.indeterminate = autoNewNodule && !manualNewNodule;
-                newNoduleLabel.textContent = autoNewNodule && !manualNewNodule
-                    ? 'New nodule detected · VDTmax'
-                    : (manualNewNodule ? 'New nodule · Manual VDTmax' : 'New nodule · Auto VDTmax');
+                const isNewNodule = VDTCore.detectNewNodule(dataForCalc);
 
                 document.querySelectorAll('.result-cell').forEach(c => c.innerHTML = '-');
                 document.querySelectorAll('.solid-input, .core-input, .nonsolid-input').forEach(input => {
@@ -1732,9 +1714,9 @@
                 for (let i = 1; i < dataForCalc.length; i++) {
                     const prev = dataForCalc[i - 1];
                     const curr = dataForCalc[i];
-                    const isSolidMax = (manualNewNodule || VDTCore.isNewNoduleType(dataForCalc, 'solid')) && i === appearanceIndexes.solid && i > 0;
-                    const isCoreMax = (manualNewNodule || VDTCore.isNewNoduleType(dataForCalc, 'core')) && i === appearanceIndexes.core && i > 0;
-                    const isGgoMax = (manualNewNodule || VDTCore.isNewNoduleType(dataForCalc, 'nonsolid')) && i === appearanceIndexes.nonsolid && i > 0;
+                    const isSolidMax = VDTCore.isNewNoduleType(dataForCalc, 'solid') && i === appearanceIndexes.solid && i > 0;
+                    const isCoreMax = VDTCore.isNewNoduleType(dataForCalc, 'core') && i === appearanceIndexes.core && i > 0;
+                    const isGgoMax = VDTCore.isNewNoduleType(dataForCalc, 'nonsolid') && i === appearanceIndexes.nonsolid && i > 0;
 
                     const prevSolid = isSolidMax ? 15 : prev.solid;
                     const prevCore = isCoreMax ? 15 : prev.core;
@@ -2017,7 +1999,6 @@
                 const first = dataForCalc[dataForCalc.length-1];
 
                 let v1, v2, lbl;
-                const manualNewNodule = document.getElementById('new-nodule-checkbox').checked;
                 const volumeKey = type === 'solid' ? 'solid' : (type === 'core' ? 'core' : 'nonsolid');
                 const appearanceIndex = (() => {
                     for (let i = dataForCalc.length - 1; i >= 0; i--) {
@@ -2025,8 +2006,7 @@
                     }
                     return -1;
                 })();
-                const autoNewNodule = appearanceIndex >= 0 && appearanceIndex < dataForCalc.length - 1;
-                const isNewNodule = manualNewNodule || autoNewNodule;
+                const isNewNodule = appearanceIndex >= 0 && appearanceIndex < dataForCalc.length - 1;
                 const measuredScans = dataForCalc.filter(scan => VDTCore.isMeasuredVolume(scan[volumeKey]));
                 const last = measuredScans[0] || dataForCalc[0];
                 
@@ -2346,7 +2326,7 @@
                                     .map(scan => ({ ...scan, dateObj: parseDateString(scan.date) }))
                                     .filter(scan => scan.dateObj)
                                     .sort((a, b) => a.dateObj - b.dateObj);
-                                const effectiveIsNewNodule = Boolean(data.isNewNodule) || VDTCore.detectNewNodule(datedScans);
+                                const effectiveIsNewNodule = VDTCore.detectNewNodule(datedScans);
                                 allPatients.push({ ...data, isNewNodule: effectiveIsNewNodule, id: identity.patientId, noduleId: identity.noduleId, storageKey: key, totals });
                             }
                         } catch (e) {}
@@ -2420,7 +2400,7 @@
             }
 
              function calculateTotalVdtForPatientData(patientData) {
-                const { tableData: pTableData, isNewNodule: pIsNewNodule } = patientData;
+                const { tableData: pTableData } = patientData;
                 const baseReturn = { solidVdtHtml: '-', coreVdtHtml: '-', ggoVdtHtml: '-', isPositive: false };
                 if (!pTableData || pTableData.length < 2) return baseReturn;
                 const dataForCalc = pTableData.map(d => ({...d, dateObj: parseDateString(d.date), solid: parseFloat(d.solid), core: parseFloat(d.core), nonsolid: parseFloat(d.nonsolid) })).filter(d => d.dateObj).sort((a, b) => a.dateObj - b.dateObj);
@@ -2435,7 +2415,7 @@
                     const firstMeasured = dataForCalc[firstIndex];
                     const lastMeasured = dataForCalc[lastIndex];
                     if (firstIndex === lastIndex) {
-                        const isNewForType = Boolean(pIsNewNodule) || VDTCore.isNewNoduleType(dataForCalc, type);
+                        const isNewForType = VDTCore.isNewNoduleType(dataForCalc, type);
                         if (!isNewForType || firstIndex === 0) return calculateSingleVDT('', '', 0);
                         const priorScan = dataForCalc[firstIndex - 1];
                         const interval = (firstMeasured.dateObj - priorScan.dateObj) / 86400000;
@@ -2501,7 +2481,11 @@
                     try { existing = JSON.parse(str); }
                     catch (error) { alert('The existing record is invalid and was not overwritten.'); return false; }
                 }
-                const data = { ...existing, patientId: pid, noduleId, noduleLocation: noduleLocationInput.value.trim(), tableData: tableData, isNewNodule: newNoduleCheckbox.checked, isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
+                const datedScans = tableData
+                    .map(scan => ({ ...scan, dateObj: parseDateString(scan.date) }))
+                    .filter(scan => scan.dateObj)
+                    .sort((a, b) => a.dateObj - b.dateObj);
+                const data = { ...existing, patientId: pid, noduleId, noduleLocation: noduleLocationInput.value.trim(), tableData: tableData, isNewNodule: VDTCore.detectNewNodule(datedScans), isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
                 try {
                     localStorage.setItem(storageKey, JSON.stringify(data));
                 } catch (error) {
@@ -2527,7 +2511,6 @@
                     currentNoduleId = normalizeNoduleId(data.noduleId || targetNoduleId);
                     noduleLocationInput.value = data.noduleLocation || '';
                     tableData = data.tableData || [];
-                    newNoduleCheckbox.checked = data.isNewNodule || false;
                     logScaleCheckbox.checked = data.isLogScale || false;
                     predictionCheckbox.checked = data.isPrediction || false;
                     uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d=>d.id)) + 1 : 0;
@@ -2564,7 +2547,6 @@
             patientIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadPatient(); });
             noduleLocationInput.addEventListener('input', renderNoduleTabs);
             sortOrderSelect.addEventListener('change', renderTable);
-            newNoduleCheckbox.addEventListener('change', calculateAll);
             logScaleCheckbox.addEventListener('change', calculateAll);
             predictionCheckbox.addEventListener('change', calculateAll);
             managePatientsBtn.addEventListener('click', openPatientManager);
