@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.7"></script>
+    <script src="./vdt-core.js?v=3.3.8"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -390,6 +390,12 @@
             border-color: #d64545;
             background: #fff5f5;
             box-shadow: 0 0 0 2px rgba(214, 69, 69, 0.08);
+        }
+
+        .data-table input.resolved-volume::placeholder {
+            color: #66727f;
+            font-style: italic;
+            opacity: 1;
         }
 
         .app-footer {
@@ -786,7 +792,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.7</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.8</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -828,8 +834,8 @@
 
                 <div class="new-nodule-control">
                     <input type="checkbox" id="new-nodule-checkbox">
-                    <label for="new-nodule-checkbox">New nodule · VDTmax</label>
-                    <span class="tooltip-icon" data-tooltip="For first-time nodules. The absent prior scan stays blank; 15 mm³ is used only as a hidden VDTmax calculation threshold.">?</span>
+                    <label for="new-nodule-checkbox" id="new-nodule-label">New nodule · Auto VDTmax</label>
+                    <span class="tooltip-icon" data-tooltip="Automatically detected when a volume first appears after an earlier dated scan. Check only to force New nodule mode manually. The hidden VDTmax threshold is 15 mm³.">?</span>
                 </div>
                 <div class="new-nodule-control">
                     <input type="checkbox" id="log-scale-checkbox">
@@ -941,8 +947,17 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.3.7 - Cleaner Copy Report</div>
+                    <div class="changelog-version">v3.3.8 - Automatic Nodule Status</div>
                     <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Automatic New Nodule:</strong> Each volume type is recognized when its first measurement follows an earlier dated scan, so VDTmax no longer requires a checkbox.</li>
+                            <li><strong>Resolved:</strong> A blank volume on the latest scan is labelled (resolved) when that volume type was measured previously.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.7 - Cleaner Copy Report</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Concise Total VDT:</strong> Copy Report keeps the Total VDT value but omits redundant total interval and total change details.</li>
@@ -1125,6 +1140,7 @@
             const predictionResultsContainer = document.getElementById('prediction-results-container');
             const sortOrderSelect = document.getElementById('sort-order');
             const newNoduleCheckbox = document.getElementById('new-nodule-checkbox');
+            const newNoduleLabel = document.getElementById('new-nodule-label');
             const logScaleCheckbox = document.getElementById('log-scale-checkbox');
             const predictionCheckbox = document.getElementById('prediction-checkbox');
             const chartCanvas = document.getElementById('volumeChart');
@@ -1662,13 +1678,24 @@
             }
 
             function calculateAll() {
-                const isNewNodule = newNoduleCheckbox.checked;
+                const manualNewNodule = newNoduleCheckbox.checked;
                 const dataForCalc = tableData
                     .map(d => ({...d, dateObj: parseDateString(d.date), solid: parseFloat(d.solid), core: parseFloat(d.core), nonsolid: parseFloat(d.nonsolid) }))
                     .filter(d => d.dateObj)
                     .sort((a, b) => a.dateObj - b.dateObj);
+                const autoNewNodule = VDTCore.detectNewNodule(dataForCalc);
+                const isNewNodule = manualNewNodule || autoNewNodule;
+
+                newNoduleCheckbox.indeterminate = autoNewNodule && !manualNewNodule;
+                newNoduleLabel.textContent = autoNewNodule && !manualNewNodule
+                    ? 'New nodule detected · VDTmax'
+                    : (manualNewNodule ? 'New nodule · Manual VDTmax' : 'New nodule · Auto VDTmax');
 
                 document.querySelectorAll('.result-cell').forEach(c => c.innerHTML = '-');
+                document.querySelectorAll('.solid-input, .core-input, .nonsolid-input').forEach(input => {
+                    input.placeholder = '';
+                    input.classList.remove('resolved-volume');
+                });
                 totalResultsContainer.innerHTML = '';
                 predictionResultsContainer.classList.add('hidden');
 
@@ -1676,6 +1703,23 @@
                 const appearanceIndexes = Object.fromEntries(
                     volumeTypes.map(type => [type, VDTCore.findFirstMeasuredIndex(dataForCalc, type)])
                 );
+                const latestScan = dataForCalc[dataForCalc.length - 1];
+                if (latestScan) {
+                    const latestRow = tableBody.querySelector(`tr[data-id="${latestScan.id}"]`);
+                    const inputSelectors = {
+                        solid: '.solid-input',
+                        core: '.core-input',
+                        nonsolid: '.nonsolid-input'
+                    };
+                    volumeTypes.forEach(type => {
+                        if (!VDTCore.isResolvedAtLatest(dataForCalc, type)) return;
+                        const input = latestRow?.querySelector(inputSelectors[type]);
+                        if (input) {
+                            input.placeholder = '(resolved)';
+                            input.classList.add('resolved-volume');
+                        }
+                    });
+                }
                 const maxResults = {};
                 const compactIntervalDetails = (result) => {
                     const change = Number(result.volumeChange);
@@ -1688,9 +1732,9 @@
                 for (let i = 1; i < dataForCalc.length; i++) {
                     const prev = dataForCalc[i - 1];
                     const curr = dataForCalc[i];
-                    const isSolidMax = isNewNodule && i === appearanceIndexes.solid && i > 0;
-                    const isCoreMax = isNewNodule && i === appearanceIndexes.core && i > 0;
-                    const isGgoMax = isNewNodule && i === appearanceIndexes.nonsolid && i > 0;
+                    const isSolidMax = (manualNewNodule || VDTCore.isNewNoduleType(dataForCalc, 'solid')) && i === appearanceIndexes.solid && i > 0;
+                    const isCoreMax = (manualNewNodule || VDTCore.isNewNoduleType(dataForCalc, 'core')) && i === appearanceIndexes.core && i > 0;
+                    const isGgoMax = (manualNewNodule || VDTCore.isNewNoduleType(dataForCalc, 'nonsolid')) && i === appearanceIndexes.nonsolid && i > 0;
 
                     const prevSolid = isSolidMax ? 15 : prev.solid;
                     const prevCore = isCoreMax ? 15 : prev.core;
@@ -1971,11 +2015,9 @@
                 let html = `<table style="${tableStyle}">`;
                 
                 const first = dataForCalc[dataForCalc.length-1];
-                const last = dataForCalc[0];
-                const diff = (last.dateObj - first.dateObj) / 86400000;
-                
+
                 let v1, v2, lbl;
-                const isNewNodule = document.getElementById('new-nodule-checkbox').checked;
+                const manualNewNodule = document.getElementById('new-nodule-checkbox').checked;
                 const volumeKey = type === 'solid' ? 'solid' : (type === 'core' ? 'core' : 'nonsolid');
                 const appearanceIndex = (() => {
                     for (let i = dataForCalc.length - 1; i >= 0; i--) {
@@ -1983,7 +2025,10 @@
                     }
                     return -1;
                 })();
+                const autoNewNodule = appearanceIndex >= 0 && appearanceIndex < dataForCalc.length - 1;
+                const isNewNodule = manualNewNodule || autoNewNodule;
                 const measuredScans = dataForCalc.filter(scan => VDTCore.isMeasuredVolume(scan[volumeKey]));
+                const last = measuredScans[0] || dataForCalc[0];
                 
                 let startScanForTotal = measuredScans[measuredScans.length - 1] || first;
                 let useNewNoduleMaximum = false;
@@ -2049,7 +2094,11 @@
                     let v = type==='solid' ? s.solid : (type==='core' ? s.core : s.nonsolid);
                     const state = VDTCore.getNewNoduleReportState(i, appearanceIndex, isNewNodule);
                     let volumeText = isNaN(v) ? 'N/A' : `${v.toFixed(0)} mm³`;
-                    if (state === 'absent') volumeText = '';
+                    const isResolved = i === 0
+                        && !VDTCore.isMeasuredVolume(v)
+                        && dataForCalc.slice(1).some(scan => VDTCore.isMeasuredVolume(scan[volumeKey]));
+                    if (isResolved) volumeText = '(resolved)';
+                    else if (state === 'absent') volumeText = '';
                     else if (state === 'new' && !isNaN(v)) volumeText += ' (new)';
                     html += `<td style="${cellStyle}">${volumeText}</td>`;
                     if (i < dataForCalc.length - 1) {
@@ -2293,7 +2342,12 @@
                             if (data && data.tableData) {
                                 const identity = parseStoredIdentity(key, data);
                                 const totals = calculateTotalVdtForPatientData(data);
-                                allPatients.push({ ...data, id: identity.patientId, noduleId: identity.noduleId, storageKey: key, totals });
+                                const datedScans = data.tableData
+                                    .map(scan => ({ ...scan, dateObj: parseDateString(scan.date) }))
+                                    .filter(scan => scan.dateObj)
+                                    .sort((a, b) => a.dateObj - b.dateObj);
+                                const effectiveIsNewNodule = Boolean(data.isNewNodule) || VDTCore.detectNewNodule(datedScans);
+                                allPatients.push({ ...data, isNewNodule: effectiveIsNewNodule, id: identity.patientId, noduleId: identity.noduleId, storageKey: key, totals });
                             }
                         } catch (e) {}
                     }
@@ -2381,7 +2435,8 @@
                     const firstMeasured = dataForCalc[firstIndex];
                     const lastMeasured = dataForCalc[lastIndex];
                     if (firstIndex === lastIndex) {
-                        if (!pIsNewNodule || firstIndex === 0) return calculateSingleVDT('', '', 0);
+                        const isNewForType = Boolean(pIsNewNodule) || VDTCore.isNewNoduleType(dataForCalc, type);
+                        if (!isNewForType || firstIndex === 0) return calculateSingleVDT('', '', 0);
                         const priorScan = dataForCalc[firstIndex - 1];
                         const interval = (firstMeasured.dateObj - priorScan.dateObj) / 86400000;
                         return calculateSingleVDT(firstMeasured[type], 15, interval, true);

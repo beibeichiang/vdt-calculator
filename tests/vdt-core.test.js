@@ -10,6 +10,9 @@ const {
     inferScanLabels,
     shouldShowTotalInReport,
     findFirstMeasuredIndex,
+    isNewNoduleType,
+    detectNewNodule,
+    isResolvedAtLatest,
     getNewNoduleReportState
 } = require('../vdt-core.js');
 
@@ -161,4 +164,30 @@ test('new nodule appearance follows the first measured scan rather than the firs
     assert.equal(getNewNoduleReportState(1, newestFirstAppearanceIndex, true), 'new');
     assert.equal(getNewNoduleReportState(0, newestFirstAppearanceIndex, true), 'measured');
     assert.equal(getNewNoduleReportState(1, newestFirstAppearanceIndex, false), 'measured');
+});
+
+test('new nodules are detected independently for each volume type', () => {
+    const oldestFirst = [
+        { solid: 40, core: NaN, nonsolid: NaN },
+        { solid: 44, core: NaN, nonsolid: NaN },
+        { solid: 48, core: 120, nonsolid: NaN }
+    ];
+
+    assert.equal(isNewNoduleType(oldestFirst, 'solid'), false);
+    assert.equal(isNewNoduleType(oldestFirst, 'core'), true);
+    assert.equal(isNewNoduleType(oldestFirst, 'nonsolid'), false);
+    assert.equal(detectNewNodule(oldestFirst), true);
+    assert.equal(detectNewNodule([{ core: 20 }, { core: 30 }], ['core']), false);
+});
+
+test('a blank latest volume is resolved only when that type was measured earlier', () => {
+    const oldestFirst = [
+        { solid: 40, core: NaN },
+        { solid: 25, core: NaN },
+        { solid: NaN, core: NaN }
+    ];
+
+    assert.equal(isResolvedAtLatest(oldestFirst, 'solid'), true);
+    assert.equal(isResolvedAtLatest(oldestFirst, 'core'), false);
+    assert.equal(isResolvedAtLatest([{ solid: 40 }, { solid: 25 }], 'solid'), false);
 });

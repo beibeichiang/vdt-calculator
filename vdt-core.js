@@ -278,6 +278,22 @@
         return scans.findIndex(scan => isMeasuredVolume(scan && scan[volumeKey]));
     }
 
+    function isNewNoduleType(scans, volumeKey) {
+        return findFirstMeasuredIndex(scans, volumeKey) > 0;
+    }
+
+    function detectNewNodule(scans, volumeKeys = ['solid', 'core', 'nonsolid']) {
+        if (!Array.isArray(scans)) return false;
+        return volumeKeys.some(volumeKey => isNewNoduleType(scans, volumeKey));
+    }
+
+    function isResolvedAtLatest(scans, volumeKey) {
+        if (!Array.isArray(scans) || scans.length < 2) return false;
+        const latest = scans[scans.length - 1];
+        if (isMeasuredVolume(latest && latest[volumeKey])) return false;
+        return scans.slice(0, -1).some(scan => isMeasuredVolume(scan && scan[volumeKey]));
+    }
+
     function getNewNoduleReportState(newestFirstIndex, appearanceIndex, isNewNodule) {
         if (!isNewNodule || appearanceIndex < 0) return 'measured';
         if (newestFirstIndex > appearanceIndex) return 'absent';
@@ -296,6 +312,9 @@
         shouldShowTotalInReport,
         isMeasuredVolume,
         findFirstMeasuredIndex,
+        isNewNoduleType,
+        detectNewNodule,
+        isResolvedAtLatest,
         getNewNoduleReportState
     };
 });
