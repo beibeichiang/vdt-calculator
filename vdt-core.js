@@ -129,7 +129,7 @@
     function parseScanLabel(value) {
         if (typeof value !== 'string') return null;
         const normalized = value.trim().replace(/\s+/g, ' ');
-        const match = normalized.match(/^(baseline|1st annual|first annual|2nd annual|second annual|biennial)(?:\s*\+\s*(3|6|9)m)?$/i);
+        const match = normalized.match(/^(baseline|1st annual|first annual|2nd annual|second annual|biennial)(?:\s*\+\s*(?:(3|6|9)m|(2nd|3rd)\s+3m))?$/i);
         if (!match) return null;
 
         const name = match[1].toLowerCase();
@@ -137,12 +137,25 @@
             : (name === '1st annual' || name === 'first annual') ? '1st Annual'
                 : (name === '2nd annual' || name === 'second annual') ? '2nd Annual'
                     : 'Biennial';
+        const repeatIndex = match[2]
+            ? ({ 3: 1, 6: 2, 9: 3 }[Number(match[2])] || 0)
+            : (match[3]?.toLowerCase() === '2nd' ? 2 : (match[3]?.toLowerCase() === '3rd' ? 3 : 0));
+        const repeatSuffix = repeatIndex === 1 ? '+3m'
+            : repeatIndex === 2 ? '+6m'
+                : repeatIndex === 3 ? '+9m'
+                    : '';
         return {
             label,
             stageIndex: ROUTINE_STAGES.findIndex(stage => stage.label === label),
-            offsetMonths: Number(match[2] || 0),
-            canonical: label + (match[2] ? `+${match[2]}m` : '')
+            repeatIndex,
+            offsetMonths: repeatIndex * 3,
+            canonical: label + repeatSuffix
         };
+    }
+
+    function formatRepeatLabel(stageLabel, repeatIndex) {
+        if (repeatIndex <= 0) return stageLabel;
+        return `${stageLabel}+${repeatIndex * 3}m`;
     }
 
     function addMonths(date, months) {
@@ -195,7 +208,7 @@
         }
 
         let directBiennial = null;
-        if (parsedAnchor.stageIndex === 0 && parsedAnchor.offsetMonths === 0) {
+        if (parsedAnchor.stageIndex === 0) {
             const annualCandidate = findRoutineCandidate(routineDates[0], 12, 1);
             if (!annualCandidate) {
                 directBiennial = findRoutineCandidate(routineDates[0], 24, 1);
@@ -234,31 +247,54 @@
             }
         }
 
+        const stageById = new Map();
         scans.forEach(scan => {
-            if (scan.id === anchor.id && parseScanLabel(anchor.customLabel)) {
-                labels[scan.id] = parsedAnchor.canonical;
-                return;
-            }
             const routineIndex = routineIds.findIndex(id => id === scan.id);
             if (routineIndex !== -1) {
-                labels[scan.id] = ROUTINE_STAGES[routineIndex].label;
+                stageById.set(scan.id, routineIndex);
                 return;
             }
-
             let stage = -1;
             for (let i = 0; i < routineDates.length; i++) {
                 if (scan.dateObj >= routineDates[i]) stage = i;
             }
-            if (stage < 0) {
-                labels[scan.id] = 'Pre-Baseline';
+            stageById.set(scan.id, stage);
+        });
+
+        scans.filter(scan => stageById.get(scan.id) < 0).forEach(scan => {
+            labels[scan.id] = 'Pre-Baseline';
+        });
+
+        ROUTINE_STAGES.forEach((stageInfo, stageIndex) => {
+            const stageScans = scans.filter(scan => stageById.get(scan.id) === stageIndex);
+            if (!stageScans.length) return;
+
+            const routinePosition = stageScans.findIndex(scan => routineIds[stageIndex] === scan.id);
+            const anchorPosition = stageScans.findIndex(scan => scan.id === anchor.id && parsedAnchor.stageIndex === stageIndex);
+
+            if (routinePosition !== -1) {
+                stageScans.forEach((scan, index) => {
+                    labels[scan.id] = formatRepeatLabel(stageInfo.label, Math.max(0, index - routinePosition));
+                });
                 return;
             }
-            const offset = monthsBetween(scan.dateObj, routineDates[stage]);
-            if (offset < 1.5) labels[scan.id] = ROUTINE_STAGES[stage].label;
-            else if (offset < 4.5) labels[scan.id] = `${ROUTINE_STAGES[stage].label}+3m`;
-            else if (offset < 7.5) labels[scan.id] = `${ROUTINE_STAGES[stage].label}+6m`;
-            else if (offset < 10.5) labels[scan.id] = `${ROUTINE_STAGES[stage].label}+9m`;
-            else labels[scan.id] = `${ROUTINE_STAGES[stage].label}+>9m`;
+
+            if (anchorPosition !== -1) {
+                stageScans.forEach((scan, index) => {
+                    const repeatIndex = Math.max(0, parsedAnchor.repeatIndex + index - anchorPosition);
+                    labels[scan.id] = formatRepeatLabel(stageInfo.label, repeatIndex);
+                });
+                labels[anchor.id] = parsedAnchor.canonical;
+                return;
+            }
+
+            const firstOffset = monthsBetween(stageScans[0].dateObj, routineDates[stageIndex]);
+            const firstRepeatIndex = stageIndex > parsedAnchor.stageIndex
+                ? 0
+                : (firstOffset < 1.5 ? 0 : 1);
+            stageScans.forEach((scan, index) => {
+                labels[scan.id] = formatRepeatLabel(stageInfo.label, firstRepeatIndex + index);
+            });
         });
 
         return labels;
@@ -301,6 +337,25 @@
         return 'measured';
     }
 
+    function getCopyReportLayout(scanCount) {
+        const count = Math.max(1, Math.floor(Number(scanCount) || 1));
+        const columnCount = count * 2 + 1;
+        const comparisonWidthIn = Math.min(13.2, count * 5.2);
+        const columnWidthIn = comparisonWidthIn / (count * 2);
+        const edgeColumnWidthIn = columnWidthIn / 2;
+
+        return {
+            scanCount: count,
+            columnCount,
+            comparisonWidthIn: Number(comparisonWidthIn.toFixed(3)),
+            reportWidthIn: Number(comparisonWidthIn.toFixed(3)),
+            columnWidthIn: Number(columnWidthIn.toFixed(3)),
+            edgeColumnWidthIn: Number(edgeColumnWidthIn.toFixed(3)),
+            rowHeightPt: 1,
+            lineHeightPt: 11
+        };
+    }
+
     return {
         parseDateString,
         calculateSingleVDT,
@@ -315,6 +370,7 @@
         isNewNoduleType,
         detectNewNodule,
         isResolvedAtLatest,
-        getNewNoduleReportState
+        getNewNoduleReportState,
+        getCopyReportLayout
     };
 });

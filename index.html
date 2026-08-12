@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.8"></script>
+    <script src="./vdt-core.js?v=3.3.9"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -792,7 +792,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.8</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.9</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -942,8 +942,21 @@
             </div>
             <ul class="changelog-list">
                 <li class="changelog-item">
-                    <div class="changelog-version">v3.3.8 - Automatic Nodule Status</div>
+                    <div class="changelog-version">v3.3.9 - Sequential screening labels and slide-ready reports</div>
                     <div class="changelog-date">Current Version</div>
+                    <ul>
+                        <li>The first observed scan in a newly inferred stage establishes its routine label before any +3m repeat is assigned.</li>
+                        <li>Short-term repeat labels remain +3m, +6m, and +9m.</li>
+                    </ul>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li><strong>Automatic slide width:</strong> Two to four scan labels align with their image centres and interval VDT values align with the boundaries between images.</li>
+                            <li><strong>Minimum height:</strong> Zero cell padding and an exact 14 pt line height keep the pasted report as short as possible.</li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.3.8 - Automatic Nodule Status</div>
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Automatic New Nodule:</strong> Each volume type is recognized when its first measurement follows an earlier dated scan, so VDTmax no longer requires a checkbox.</li>
@@ -1402,7 +1415,7 @@
                     <div class="screening-menu-stage">
                         <button type="button" class="screening-menu-primary" role="menuitem" data-label="${stage}">${stage}</button>
                         <div class="screening-menu-submenu" role="menu" aria-label="${stage} repeat scans">
-                            ${[3, 6, 9].map(month => `<button type="button" class="screening-menu-secondary" role="menuitem" data-label="${stage}+${month}m">${stage}+${month}m</button>`).join('')}
+                            ${['+3m', '+6m', '+9m'].map(suffix => `<button type="button" class="screening-menu-secondary" role="menuitem" data-label="${stage}${suffix}">${stage}${suffix}</button>`).join('')}
                         </div>
                     </div>`).join('');
             }
@@ -1990,11 +2003,21 @@
 
                 if (dataForCalc.length < 1) return;
                 
-                const numCols = dataForCalc.length > 1 ? dataForCalc.length * 2 - 1 : 1;
-                const cellStyle = "border: none; padding: 0.01in; text-align: center; font-family: Arial; font-size: 11pt; color: white; background-color: transparent;";
-                const tableStyle = `font-family: Arial; font-size: 11pt; border-collapse: collapse; border: none; background-color: transparent; table-layout: fixed; width: ${numCols * 100}px;`;
+                const reportLayout = VDTCore.getCopyReportLayout(dataForCalc.length);
+                const numCols = reportLayout.columnCount;
+                const tableWidthPx = Math.round(reportLayout.reportWidthIn * 96);
+                const columnWidthPx = Math.round(reportLayout.columnWidthIn * 96);
+                const edgeColumnWidthPx = Math.round(reportLayout.edgeColumnWidthIn * 96);
+                const cellStyle = `border: none; padding: 0.01in; mso-padding-alt: 0.01in 0.01in 0.01in 0.01in; text-align: center; vertical-align: middle; white-space: nowrap; font-family: Arial; font-size: 11pt; color: white; background-color: transparent;`;
+                const textStyle = `margin: 0; padding: 0; font-family: Arial; font-size: 11pt; line-height: normal; color: white; white-space: nowrap;`;
+                const textCell = (content = '', attributes = '') => `<td ${attributes} style="${cellStyle}"><span style="${textStyle}">${content}</span></td>`;
+                const tableStyle = `font-family: Arial; font-size: 11pt; line-height: normal; border-collapse: collapse; border-spacing: 0; border: none; background-color: transparent; table-layout: fixed; width: ${reportLayout.reportWidthIn}in; mso-table-lspace: 0pt; mso-table-rspace: 0pt;`;
+                const edgeCol = `<col width="${edgeColumnWidthPx}" style="width: ${reportLayout.edgeColumnWidthIn}in;">`;
+                const contentCols = Array.from({ length: numCols - 2 }, () => `<col width="${columnWidthPx}" style="width: ${reportLayout.columnWidthIn}in;">`).join('');
+                const colgroup = `<colgroup>${edgeCol}${contentCols}${edgeCol}</colgroup>`;
+                const edgeCell = `<td width="${edgeColumnWidthPx}" style="${cellStyle}"></td>`;
                 
-                let html = `<table style="${tableStyle}">`;
+                let html = `<table width="${tableWidthPx}" cellpadding="0" cellspacing="0" style="${tableStyle}">${colgroup}`;
                 
                 const first = dataForCalc[dataForCalc.length-1];
 
@@ -2033,16 +2056,18 @@
                 else disp = `<b>${disp}</b>`;
                 
                 if (VDTCore.shouldShowTotalInReport(measuredScans.length, isNewNodule)) {
-                    html += `<tr><td colspan="${numCols}" style="${cellStyle}">${lbl}: ${disp}</td></tr>`;
+                    html += `<tr>${textCell(`${lbl}: ${disp}`, `colspan="${numCols}"`)}</tr>`;
                 }
                 
                 // Scans Row
                 html += '<tr>';
+                html += edgeCell;
                 dataForCalc.forEach((s, i) => {
                     const num = s.customLabel || `Scan ${dataForCalc.length - 1 - i}`;
-                    html += `<td style="${cellStyle}">${VDTCore.escapeHtml(num)}</td>`;
-                    if(i < dataForCalc.length -1) html += `<td style="${cellStyle}"></td>`;
+                    html += textCell(VDTCore.escapeHtml(num));
+                    if(i < dataForCalc.length -1) html += textCell();
                 });
+                html += edgeCell;
                 html += '</tr>';
 
                 const formatIntervalVdt = (i) => {
@@ -2070,6 +2095,7 @@
                 
                 // Volumes Row
                 html += '<tr>';
+                html += edgeCell;
                 dataForCalc.forEach((s, i) => {
                     let v = type==='solid' ? s.solid : (type==='core' ? s.core : s.nonsolid);
                     const state = VDTCore.getNewNoduleReportState(i, appearanceIndex, isNewNodule);
@@ -2080,25 +2106,28 @@
                     if (isResolved) volumeText = '(resolved)';
                     else if (state === 'absent') volumeText = '';
                     else if (state === 'new' && !isNaN(v)) volumeText += ' (new)';
-                    html += `<td style="${cellStyle}">${volumeText}</td>`;
+                    html += textCell(volumeText);
                     if (i < dataForCalc.length - 1) {
                         const betweenScans = dataForCalc.length === 2 ? formatIntervalVdt(i) : '';
-                        html += `<td style="${cellStyle}">${betweenScans}</td>`;
+                        html += textCell(betweenScans);
                     }
                 });
+                html += edgeCell;
                 html += '</tr>';
                 
                 // Multi-scan reports keep a separate row for each interval.
                 if (dataForCalc.length > 2) {
                     html += '<tr>';
+                    html += edgeCell;
                     for (let i = 0; i < dataForCalc.length; i++) {
                         if (i === dataForCalc.length - 1) {
-                            html += `<td style="${cellStyle}"></td>`;
+                            html += textCell();
                         } else {
-                            html += `<td style="${cellStyle}"></td>`;
-                            html += `<td style="${cellStyle}">${formatIntervalVdt(i)}</td>`;
+                            html += textCell();
+                            html += textCell(formatIntervalVdt(i));
                         }
                     }
+                    html += edgeCell;
                     html += '</tr>';
                 }
                 html += '</table>';
