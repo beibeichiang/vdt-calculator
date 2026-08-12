@@ -808,7 +808,7 @@
         
         <div class="patient-id-container">
             <label for="patient-id">Patient ID</label>
-            <input type="text" id="patient-id" placeholder="Enter ID to save or load" autocomplete="off" spellcheck="false">
+            <input type="text" id="patient-id" placeholder="Enter full or unique partial ID" autocomplete="off" spellcheck="false">
             <label>Nodules</label>
             <div class="nodule-switcher" aria-label="Nodules for this patient">
                 <div class="nodule-tabs" id="nodule-tabs"></div>
@@ -951,7 +951,8 @@
                     <div class="changelog-desc">
                         <ul>
                             <li><strong>Automatic slide width:</strong> Two to four scan labels align with their image centres and interval VDT values align with the boundaries between images.</li>
-                            <li><strong>Minimum height:</strong> Zero cell padding and an exact 14 pt line height keep the pasted report as short as possible.</li>
+                            <li><strong>Compact editable report:</strong> PowerPoint-compatible 0.01 in cell padding keeps pasted reports short without forcing a row height.</li>
+                            <li><strong>Faster patient lookup:</strong> Press Enter after a unique partial Patient ID to load its full saved record; ambiguous matches open in the Worklist.</li>
                         </ul>
                     </div>
                 </li>
@@ -1235,6 +1236,20 @@
                     if (Number.isFinite(bNum)) return 1;
                     return a.localeCompare(b);
                 });
+            }
+
+            function getStoredPatientIds() {
+                const patientIds = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (!key || !key.startsWith(STORAGE_PREFIX)) continue;
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        const patientId = parseStoredIdentity(key, data || {}).patientId;
+                        if (patientId && !patientIds.includes(patientId)) patientIds.push(patientId);
+                    } catch (error) {}
+                }
+                return patientIds;
             }
 
             function noduleDisplayLabel(noduleId, fallbackIndex = null) {
@@ -2548,9 +2563,21 @@
                     renderNoduleTabs();
                 }
             }
-            function loadPatient() {
-                const pid = patientIdInput.value.trim();
-                if (!pid) return;
+            function loadPatient(options = {}) {
+                const enteredId = patientIdInput.value.trim();
+                if (!enteredId) return;
+                const storedPatientIds = getStoredPatientIds();
+                const exactId = storedPatientIds.find(patientId => patientId.toLowerCase() === enteredId.toLowerCase());
+                const lookup = options.allowPartial
+                    ? VDTCore.matchStoredPatientId(enteredId, storedPatientIds)
+                    : (exactId ? { status: 'match', patientId: exactId } : { status: 'none' });
+                if (lookup.status === 'ambiguous') {
+                    patientSearchInput.value = enteredId;
+                    openPatientManager();
+                    return;
+                }
+                const pid = lookup.status === 'match' ? lookup.patientId : enteredId;
+                patientIdInput.value = pid;
                 const ids = getPatientNodules(pid);
                 const preferred = ids.includes(DEFAULT_NODULE_ID) ? DEFAULT_NODULE_ID : ids[0];
                 const hasStored = localStorage.getItem(getStorageKey(pid, preferred));
@@ -2572,8 +2599,13 @@
             importBtn.addEventListener('click', () => csvFileInput.click());
             csvFileInput.addEventListener('change', handleImportCSV);
             
-            patientIdInput.addEventListener('blur', loadPatient);
-            patientIdInput.addEventListener('keydown', (e) => { if(e.key==='Enter') loadPatient(); });
+            patientIdInput.addEventListener('blur', () => loadPatient());
+            patientIdInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    loadPatient({ allowPartial: true });
+                }
+            });
             noduleLocationInput.addEventListener('input', renderNoduleTabs);
             sortOrderSelect.addEventListener('change', renderTable);
             logScaleCheckbox.addEventListener('change', calculateAll);
