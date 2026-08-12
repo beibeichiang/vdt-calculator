@@ -13,7 +13,8 @@ const {
     isNewNoduleType,
     detectNewNodule,
     isResolvedAtLatest,
-    getNewNoduleReportState
+    getNewNoduleReportState,
+    getCopyReportLayout
 } = require('../vdt-core.js');
 
 test('parseDateString accepts compact and ISO dates', () => {
@@ -68,8 +69,9 @@ test('escapeHtml neutralizes user-controlled markup', () => {
 
 test('standard scan labels are parsed and normalized', () => {
     assert.deepEqual(parseScanLabel('first annual + 6m'), {
-        label: '1st Annual', stageIndex: 1, offsetMonths: 6, canonical: '1st Annual+6m'
+        label: '1st Annual', stageIndex: 1, repeatIndex: 2, offsetMonths: 6, canonical: '1st Annual+6m'
     });
+    assert.equal(parseScanLabel('biennial + 2nd 3m').canonical, 'Biennial+6m');
     assert.equal(parseScanLabel('special review'), null);
 });
 
@@ -121,6 +123,28 @@ test('baseline without annual screening can progress directly to biennial', () =
     ]);
     assert.equal(labels[2], 'Baseline+3m');
     assert.equal(labels[3], 'Biennial');
+});
+
+test('baseline repeat followed by a two-year gap becomes biennial with a first short-term repeat', () => {
+    const labels = inferScanLabels([
+        { id: 1, date: '2024-02-17', customLabel: 'Baseline+3m', isLabelAnchor: true },
+        { id: 2, date: '2026-03-17' },
+        { id: 3, date: '2026-08-04' }
+    ]);
+    assert.equal(labels[1], 'Baseline+3m');
+    assert.equal(labels[2], 'Biennial');
+    assert.equal(labels[3], 'Biennial+3m');
+});
+
+test('first annual repeat establishes second annual before its short-term repeat', () => {
+    const labels = inferScanLabels([
+        { id: 1, date: '2024-02-17', customLabel: '1st Annual+3m', isLabelAnchor: true },
+        { id: 2, date: '2026-03-17' },
+        { id: 3, date: '2026-08-04' }
+    ]);
+    assert.equal(labels[1], '1st Annual+3m');
+    assert.equal(labels[2], '2nd Annual');
+    assert.equal(labels[3], '2nd Annual+3m');
 });
 
 test('partial scan series can be inferred from a second annual anchor', () => {
@@ -190,4 +214,23 @@ test('a blank latest volume is resolved only when that type was measured earlier
     assert.equal(isResolvedAtLatest(oldestFirst, 'solid'), true);
     assert.equal(isResolvedAtLatest(oldestFirst, 'core'), false);
     assert.equal(isResolvedAtLatest([{ solid: 40 }, { solid: 25 }], 'solid'), false);
+});
+
+test('copy report width aligns scan and interval centres for two to four slide images', () => {
+    assert.deepEqual(getCopyReportLayout(2), {
+        scanCount: 2,
+        columnCount: 5,
+        comparisonWidthIn: 10.4,
+        reportWidthIn: 10.4,
+        columnWidthIn: 2.6,
+        edgeColumnWidthIn: 1.3,
+        rowHeightPt: 1,
+        lineHeightPt: 11
+    });
+    assert.equal(getCopyReportLayout(3).reportWidthIn, 13.2);
+    assert.equal(getCopyReportLayout(3).columnWidthIn, 2.2);
+    assert.equal(getCopyReportLayout(3).edgeColumnWidthIn, 1.1);
+    assert.equal(getCopyReportLayout(4).reportWidthIn, 13.2);
+    assert.equal(getCopyReportLayout(4).columnWidthIn, 1.65);
+    assert.equal(getCopyReportLayout(4).edgeColumnWidthIn, 0.825);
 });
