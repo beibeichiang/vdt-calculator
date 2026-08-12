@@ -153,6 +153,29 @@
         };
     }
 
+    function matchStoredPatientId(query, patientIds) {
+        const entered = String(query || '').trim().replace(/\s+/g, ' ').toLowerCase();
+        if (!entered) return { status: 'none', matches: [] };
+
+        const uniqueIds = [];
+        const seen = new Set();
+        (Array.isArray(patientIds) ? patientIds : []).forEach(value => {
+            const patientId = String(value || '').trim();
+            const key = patientId.replace(/\s+/g, ' ').toLowerCase();
+            if (!patientId || seen.has(key)) return;
+            seen.add(key);
+            uniqueIds.push(patientId);
+        });
+
+        const exact = uniqueIds.filter(patientId => patientId.replace(/\s+/g, ' ').toLowerCase() === entered);
+        if (exact.length === 1) return { status: 'match', patientId: exact[0], matches: exact };
+
+        const prefix = uniqueIds.filter(patientId => patientId.replace(/\s+/g, ' ').toLowerCase().startsWith(entered));
+        if (prefix.length === 1) return { status: 'match', patientId: prefix[0], matches: prefix };
+        if (prefix.length > 1) return { status: 'ambiguous', matches: prefix };
+        return { status: 'none', matches: [] };
+    }
+
     function formatRepeatLabel(stageLabel, repeatIndex) {
         if (repeatIndex <= 0) return stageLabel;
         return `${stageLabel}+${repeatIndex * 3}m`;
@@ -362,6 +385,7 @@
         csvStringifyRow,
         parseCSV,
         escapeHtml,
+        matchStoredPatientId,
         parseScanLabel,
         inferScanLabels,
         shouldShowTotalInReport,

@@ -6,6 +6,7 @@ const {
     csvStringifyRow,
     parseCSV,
     escapeHtml,
+    matchStoredPatientId,
     parseScanLabel,
     inferScanLabels,
     shouldShowTotalInReport,
@@ -65,6 +66,17 @@ test('CSV round-trips commas, quotes and multiline notes', () => {
 
 test('escapeHtml neutralizes user-controlled markup', () => {
     assert.equal(escapeHtml('<img src=x onerror="alert(1)">'), '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+});
+
+test('patient ID lookup accepts a unique stored prefix but never guesses among duplicates', () => {
+    const patientIds = ['120046410-2 (CCN)', '120099999-1 (NSD)', '120046411-1 (CCN)'];
+    assert.deepEqual(matchStoredPatientId('120046410', patientIds), {
+        status: 'match', patientId: '120046410-2 (CCN)', matches: ['120046410-2 (CCN)']
+    });
+    assert.equal(matchStoredPatientId('120046410-2', patientIds).patientId, '120046410-2 (CCN)');
+    assert.equal(matchStoredPatientId('120046410-2 (ccn)', patientIds).patientId, '120046410-2 (CCN)');
+    assert.equal(matchStoredPatientId('12004641', patientIds).status, 'ambiguous');
+    assert.equal(matchStoredPatientId('new-patient', patientIds).status, 'none');
 });
 
 test('standard scan labels are parsed and normalized', () => {
