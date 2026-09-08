@@ -353,6 +353,40 @@
         return scans.slice(0, -1).some(scan => isMeasuredVolume(scan && scan[volumeKey]));
     }
 
+    function normalizeProjectionMonths(value) {
+        const months = Number(value);
+        return [3, 6, 9, 12].includes(months) ? months : 3;
+    }
+
+    function addProjectionMonths(date, months) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+        const monthOffset = normalizeProjectionMonths(months);
+        const targetMonthStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + monthOffset, 1));
+        const lastDayOfTargetMonth = new Date(Date.UTC(
+            targetMonthStart.getUTCFullYear(),
+            targetMonthStart.getUTCMonth() + 1,
+            0
+        )).getUTCDate();
+        return new Date(Date.UTC(
+            targetMonthStart.getUTCFullYear(),
+            targetMonthStart.getUTCMonth(),
+            Math.min(date.getUTCDate(), lastDayOfTargetMonth)
+        ));
+    }
+
+    function projectVolume(volume, vdtDays, intervalDays) {
+        const startVolume = Number(volume);
+        const vdt = Number(vdtDays);
+        const days = Number(intervalDays);
+        if (
+            !Number.isFinite(startVolume) || startVolume <= 0 ||
+            !Number.isFinite(vdt) || vdt === 0 ||
+            !Number.isFinite(days) || days < 0
+        ) return null;
+        const projected = startVolume * Math.pow(2, days / vdt);
+        return Number.isFinite(projected) && projected > 0 ? projected : null;
+    }
+
     function getNewNoduleReportState(newestFirstIndex, appearanceIndex, isNewNodule) {
         if (!isNewNodule || appearanceIndex < 0) return 'measured';
         if (newestFirstIndex > appearanceIndex) return 'absent';
@@ -394,6 +428,9 @@
         isNewNoduleType,
         detectNewNodule,
         isResolvedAtLatest,
+        normalizeProjectionMonths,
+        addProjectionMonths,
+        projectVolume,
         getNewNoduleReportState,
         getCopyReportLayout
     };

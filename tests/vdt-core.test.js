@@ -14,6 +14,9 @@ const {
     isNewNoduleType,
     detectNewNodule,
     isResolvedAtLatest,
+    normalizeProjectionMonths,
+    addProjectionMonths,
+    projectVolume,
     getNewNoduleReportState,
     getCopyReportLayout
 } = require('../vdt-core.js');
@@ -56,6 +59,23 @@ test('VDT calculation rejects invalid measurements and intervals', () => {
     assert.equal(calculateSingleVDT(0, 100, 30).value, null);
     assert.equal(calculateSingleVDT(100, 50, 0).value, null);
     assert.equal(calculateSingleVDT('not-a-number', 50, 30).value, null);
+});
+
+test('projection supports the four clinical review horizons', () => {
+    assert.equal(normalizeProjectionMonths(3), 3);
+    assert.equal(normalizeProjectionMonths('6'), 6);
+    assert.equal(normalizeProjectionMonths(9), 9);
+    assert.equal(normalizeProjectionMonths(12), 12);
+    assert.equal(normalizeProjectionMonths(5), 3);
+});
+
+test('projection uses calendar months and continues the total VDT curve', () => {
+    const latestDate = parseDateString('2024-08-31');
+    const targetDate = addProjectionMonths(latestDate, 6);
+    assert.equal(targetDate.toISOString().slice(0, 10), '2025-02-28');
+    const days = (targetDate - latestDate) / 86_400_000;
+    assert.equal(projectVolume(100, 100, days), 100 * Math.pow(2, days / 100));
+    assert.equal(projectVolume(100, 0, days), null);
 });
 
 test('CSV round-trips commas, quotes and multiline notes', () => {
