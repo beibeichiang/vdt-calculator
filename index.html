@@ -2178,6 +2178,7 @@
                             context.save();
                             context.font = '12px Arial';
                             context.textAlign = 'center';
+                            context.textBaseline = 'middle';
                             const top = x.top + 39;
                             groups.forEach((group, i) => {
                                 const first = group.points[0], lastPoint = group.points[group.points.length - 1];
@@ -2188,7 +2189,7 @@
                                 context.strokeStyle = '#D8DEE5';
                                 context.strokeRect(left, top, right - left, 25);
                                 context.fillStyle = '#66727F';
-                                group.points.forEach((point, j) => context.fillText(group.labels[j], point, top + 17));
+                                group.points.forEach((point, j) => context.fillText(group.labels[j], point, top + 12.5));
                             });
                             context.restore();
                         }
