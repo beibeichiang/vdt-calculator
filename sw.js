@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vdt-calculator-v3.4.0';
+const CACHE_NAME = 'vdt-calculator-v3.4.0-grouped-axis';
 const APP_SHELL = [
   './',
   './index.html',
