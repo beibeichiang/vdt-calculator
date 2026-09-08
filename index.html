@@ -2002,8 +2002,8 @@
                         formatter: (v, ctx) => {
                             let str = `${v.y.toFixed(1)} mm³`;
                             const point = ctx.dataset.data[ctx.dataIndex];
-                            if (point.vdt && point.vdt !== 'Stable' && point.vdt !== '-') {
-                                str += `\n${point.isVdtMax ? 'VDTmax' : 'VDT'}: ${point.vdt}d`;
+                            if (!point.isVdtMax && point.vdt && point.vdt !== 'Stable' && point.vdt !== '-') {
+                                str += `\nVDT: ${point.vdt}d`;
                             }
                             return str;
                         }
@@ -2079,6 +2079,7 @@
                         : (Math.log(2) * totalDays) / (Math.log(lastMeasured.y) - Math.log(firstMeasured.y));
                     if (!stable && (!Number.isFinite(exactVdt) || exactVdt === 0)) return;
 
+                    const totalText = `${totalLabel}: ${stable ? 'Stable' : `${vdtRes.value}d`}`;
                     const middleDate = new Date((firstMeasured.x.getTime() + lastMeasured.x.getTime()) / 2);
                     const middleDays = (middleDate - firstMeasured.x) / 86400000;
                     const middleVolume = stable
@@ -2086,7 +2087,7 @@
                         : VDTCore.projectVolume(firstMeasured.y, exactVdt, middleDays);
                     const trendData = [
                         firstMeasured,
-                        { x: middleDate, y: middleVolume, role: 'total', text: `${totalLabel}: ${stable ? 'Stable' : `${vdtRes.value}d`}` },
+                        { x: middleDate, y: middleVolume },
                         lastMeasured
                     ];
 
@@ -2106,6 +2107,9 @@
                             });
                         }
                     });
+                    const totalEndpoint = trendData[trendData.length - 1];
+                    totalEndpoint.role = 'totalEnd';
+                    totalEndpoint.totalText = totalText;
 
                     datasets.push({
                         label: `${seriesLabel} total trend`,
@@ -2115,19 +2119,23 @@
                         borderWidth: 1.5,
                         borderDash: [5, 5],
                         tension: 0,
-                        pointRadius: context => context.raw?.role === 'projection' ? 4 : 0,
+                        pointRadius: context => (context.raw?.role === 'projection' || (context.raw?.role === 'totalEnd' && context.raw?.text)) ? 4 : 0,
                         pointBackgroundColor: 'white',
                         pointBorderColor: color,
                         datalabels: {
                             display: context => Boolean(context.dataset.data[context.dataIndex]?.role),
-                            align: context => context.dataset.data[context.dataIndex]?.role === 'total' ? 'bottom' : (context.dataIndex % 2 ? 'top' : 'bottom'),
-                            offset: 6,
+                            align: context => context.dataset.data[context.dataIndex]?.role === 'totalEnd' ? 'right' : (context.dataIndex % 2 ? 'top' : 'bottom'),
+                            anchor: 'center',
+                            offset: context => context.dataset.data[context.dataIndex]?.role === 'totalEnd' ? 10 : 6,
                             color: color,
                             font: { weight: '500', size: 11 },
                             backgroundColor: 'rgba(255,255,255,0.92)',
                             borderRadius: 4,
                             padding: 2,
-                            formatter: value => value.text || null
+                            formatter: value => {
+                                if (value.role === 'totalEnd') return [value.text, value.totalText].filter(Boolean).join('\n');
+                                return value.text || null;
+                            }
                         }
                     });
                 };
