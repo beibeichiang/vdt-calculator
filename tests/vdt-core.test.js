@@ -12,6 +12,7 @@ const {
     shouldShowTotalInReport,
     findFirstMeasuredIndex,
     isNewNoduleType,
+    getNewNoduleMaxState,
     detectNewNodule,
     isResolvedAtLatest,
     normalizeProjectionMonths,
@@ -234,6 +235,17 @@ test('new nodules are detected independently for each volume type', () => {
     assert.equal(isNewNoduleType(oldestFirst, 'nonsolid'), false);
     assert.equal(detectNewNodule(oldestFirst), true);
     assert.equal(detectNewNodule([{ core: 20 }, { core: 30 }], ['core']), false);
+});
+
+test('new-nodule chart state uses the immediately preceding scan and assumed 15 mm³', () => {
+    const scans = [{ solid: NaN }, { solid: NaN }, { solid: 130.2 }, { solid: 149.2 }];
+    assert.deepEqual(getNewNoduleMaxState(scans, 'solid'), {
+        appearanceIndex: 2,
+        previousIndex: 1,
+        assumedVolume: 15
+    });
+    assert.equal(getNewNoduleMaxState([{ solid: 10 }, { solid: 20 }], 'solid'), null);
+    assert.equal(getNewNoduleMaxState([{ solid: NaN }, { solid: 12 }], 'solid'), null);
 });
 
 test('a blank latest volume is resolved only when that type was measured earlier', () => {

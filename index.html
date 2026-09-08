@@ -1376,8 +1376,7 @@
                 currentNoduleId = noduleId;
                 noduleLocationInput.value = data.noduleLocation || '';
                 tableData = (data.tableData || []).map(row => ({ ...row }));
-                logScaleCheckbox.checked = Boolean(data.isLogScale);
-                predictionCheckbox.checked = Boolean(data.isPrediction);
+                restoreChartPreferences();
                 projectionHorizonSelect.value = String(VDTCore.normalizeProjectionMonths(data.projectionMonths));
                 syncProjectionControls();
                 uniqueRowId = tableData.length ? Math.max(...tableData.map(row => row.id)) + 1 : 0;
@@ -1763,8 +1762,7 @@
                 noduleLocationInput.value = '';
                 tableData = [];
                 tableBody.innerHTML = '';
-                logScaleCheckbox.checked = false;
-                predictionCheckbox.checked = false;
+                restoreChartPreferences();
                 projectionHorizonSelect.value = '3';
                 syncProjectionControls();
                 uniqueRowId = 0;
@@ -1974,12 +1972,15 @@
                     projections.forEach(point => { dateLabelMap[point.date.toISOString().split('T')[0]] = point.label; });
                 }
 
-                const createDs = (label, color, key, vdtKey) => ({
+                const createDs = (label, color, key, vdtKey) => {
+                    const appearanceIndex = VDTCore.findFirstMeasuredIndex(chartData, key);
+                    return ({
                     label: label,
-                    data: chartData.map(d => ({
+                    data: chartData.map((d, index) => ({
                         x: d.dateObj, 
                         y: d[key],
                         vdt: d[vdtKey], 
+                        isVdtMax: appearanceIndex > 0 && index === appearanceIndex,
                         label: d.customLabel || 'Scan'
                     })).filter(p => !isNaN(p.y)),
                     borderColor: color,
@@ -2002,18 +2003,60 @@
                             let str = `${v.y.toFixed(1)} mm³`;
                             const point = ctx.dataset.data[ctx.dataIndex];
                             if (point.vdt && point.vdt !== 'Stable' && point.vdt !== '-') {
-                                str += `\nVDT: ${point.vdt}d`;
+                                str += `\n${point.isVdtMax ? 'VDTmax' : 'VDT'}: ${point.vdt}d`;
                             }
                             return str;
                         }
                     }
-                });
+                    });
+                };
 
                 const datasets = [
                     createDs('Solid', '#3A6EA5', 'solid', 'vdtSolid'),
                     createDs('Solid core', '#A44A4A', 'core', 'vdtCore'),
                     createDs('Non-solid', '#4F7C6A', 'nonsolid', 'vdtNonsolid')
                 ];
+
+                const addNewNoduleMaxSegment = (seriesLabel, color, key) => {
+                    const state = VDTCore.getNewNoduleMaxState(chartData, key);
+                    if (!state) return;
+                    const previous = chartData[state.previousIndex];
+                    const firstMeasured = chartData[state.appearanceIndex];
+                    const days = (firstMeasured.dateObj - previous.dateObj) / 86400000;
+                    const result = calculateSingleVDT(firstMeasured[key], state.assumedVolume, days, true);
+                    if (!result.value || days <= 0) return;
+                    datasets.push({
+                        label: `${seriesLabel} VDTmax`,
+                        data: [
+                            { x: previous.dateObj, y: state.assumedVolume, role: 'assumed', text: '15 mm³ (assumed)' },
+                            { x: firstMeasured.dateObj, y: Number(firstMeasured[key]) }
+                        ],
+                        borderColor: color,
+                        backgroundColor: 'white',
+                        borderWidth: 1.5,
+                        borderDash: [5, 5],
+                        tension: 0,
+                        pointRadius: context => context.raw?.role === 'assumed' ? 4 : 0,
+                        pointBorderWidth: 1.5,
+                        pointBorderColor: color,
+                        pointBackgroundColor: 'white',
+                        datalabels: {
+                            display: context => Boolean(context.dataset.data[context.dataIndex]?.role),
+                            align: context => context.dataset.data[context.dataIndex]?.role === 'assumed' ? 'top' : 'bottom',
+                            offset: 6,
+                            color,
+                            font: { weight: '500', size: 11 },
+                            backgroundColor: 'rgba(255,255,255,0.92)',
+                            borderRadius: 4,
+                            padding: 2,
+                            formatter: value => value.text || null
+                        }
+                    });
+                };
+
+                addNewNoduleMaxSegment('Solid', '#3A6EA5', 'solid');
+                addNewNoduleMaxSegment('Solid core', '#A44A4A', 'core');
+                addNewNoduleMaxSegment('Non-solid', '#4F7C6A', 'nonsolid');
 
                 const addTotalTrend = (seriesLabel, totalLabel, color, key, vdtRes) => {
                     const measured = chartData
@@ -2032,6 +2075,7 @@
                         : (Math.log(2) * totalDays) / (Math.log(lastMeasured.y) - Math.log(firstMeasured.y));
                     if (!stable && (!Number.isFinite(exactVdt) || exactVdt === 0)) return;
 
+                    const totalText = `${totalLabel}: ${stable ? 'Stable' : `${vdtRes.value}d`}`;
                     const middleDate = new Date((firstMeasured.x.getTime() + lastMeasured.x.getTime()) / 2);
                     const middleDays = (middleDate - firstMeasured.x) / 86400000;
                     const middleVolume = stable
@@ -2039,7 +2083,7 @@
                         : VDTCore.projectVolume(firstMeasured.y, exactVdt, middleDays);
                     const trendData = [
                         firstMeasured,
-                        { x: middleDate, y: middleVolume, role: 'total', text: `${totalLabel}: ${stable ? 'Stable' : `${vdtRes.value}d`}` },
+                        { x: middleDate, y: middleVolume },
                         lastMeasured
                     ];
 
@@ -2059,6 +2103,7 @@
                             });
                         }
                     });
+                    const totalEndpoint = trendData[trendData.length - 1];
 
                     datasets.push({
                         label: `${seriesLabel} total trend`,
@@ -2073,7 +2118,8 @@
                         pointBorderColor: color,
                         datalabels: {
                             display: context => Boolean(context.dataset.data[context.dataIndex]?.role),
-                            align: context => context.dataset.data[context.dataIndex]?.role === 'total' ? 'bottom' : (context.dataIndex % 2 ? 'top' : 'bottom'),
+                            align: 'top',
+                            anchor: 'center',
                             offset: 6,
                             color: color,
                             font: { weight: '500', size: 11 },
@@ -2081,6 +2127,26 @@
                             borderRadius: 4,
                             padding: 2,
                             formatter: value => value.text || null
+                        }
+                    });
+
+                    datasets.push({
+                        label: `${seriesLabel} total label`,
+                        data: [{ x: totalEndpoint.x, y: totalEndpoint.y, text: totalText }],
+                        showLine: false,
+                        pointRadius: 0,
+                        borderColor: color,
+                        backgroundColor: color,
+                        datalabels: {
+                            align: 'right',
+                            anchor: 'center',
+                            offset: 12,
+                            color,
+                            font: { weight: '600', size: 11 },
+                            backgroundColor: 'rgba(255,255,255,0.94)',
+                            borderRadius: 4,
+                            padding: 3,
+                            formatter: value => value.text
                         }
                     });
                 };
@@ -2092,13 +2158,51 @@
                 try {
                     volumeChart = new Chart(ctx, {
                     type: 'line',
-                    plugins: typeof ChartDataLabels === 'undefined' ? [] : [ChartDataLabels],
-                    data: { datasets },
+                    plugins: [...(typeof ChartDataLabels === 'undefined' ? [] : [ChartDataLabels]), {
+                        id: 'roundGroups',
+                        afterDraw(chart) {
+                            const x = chart.scales.x;
+                            const context = chart.ctx;
+                            const groups = [];
+                            chartData.forEach(scan => {
+                                const name = (scan.customLabel || 'Scan').split('+')[0].trim();
+                                let group = groups[groups.length - 1];
+                                if (!group || group.name !== name) {
+                                    group = { name, points: [], labels: [] };
+                                    groups.push(group);
+                                }
+                                group.points.push(x.getPixelForValue(scan.dateObj.getTime()));
+                                group.labels.push(group.points.length === 1 ? (scan.customLabel || name) : ((scan.customLabel || '').match(/\+\d+m$/)?.[0] || name));
+                            });
+                            if (predictionCheckbox.checked) groups.push({ name: 'Projection', points: projections.map(p => x.getPixelForValue(p.date.getTime())), labels: projections.map((p, i) => i === 0 ? `Projection ${p.label}` : p.label) });
+                            context.save();
+                            context.font = '12px Arial';
+                            context.textAlign = 'center';
+                            context.textBaseline = 'middle';
+                            const top = x.top + 39;
+                            groups.forEach((group, i) => {
+                                const first = group.points[0], lastPoint = group.points[group.points.length - 1];
+                                const left = first - context.measureText(group.labels[0]).width / 2 - 7;
+                                const right = lastPoint + context.measureText(group.labels.at(-1)).width / 2 + 7;
+                                context.fillStyle = group.name === 'Projection' ? '#EEF3F7' : '#F7F8FA';
+                                context.fillRect(left, top, right - left, 25);
+                                context.strokeStyle = '#D8DEE5';
+                                context.strokeRect(left, top, right - left, 25);
+                                context.fillStyle = '#66727F';
+                                group.points.forEach((point, j) => context.fillText(group.labels[j], point, top + 12.5));
+                            });
+                            context.restore();
+                        }
+                    }],
+                    data: {
+                        labels: Object.keys(dateLabelMap).sort(),
+                        datasets
+                    },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         layout: {
-                             padding: { top: 32, left: 16, right: 42, bottom: 8 }
+                             padding: { top: 32, left: 16, right: 110, bottom: 8 }
                         },
                         scales: {
                             x: { 
@@ -2107,6 +2211,12 @@
                                 max: (predictionCheckbox.checked ? projections[3].date : last.dateObj).getTime() + Math.max(86400000, ((predictionCheckbox.checked ? projections[3].date : last.dateObj) - chartData[0].dateObj) * 0.045),
                                 grid: { display: false },
                                 border: { color: '#D8DEE5' },
+                                afterFit: axis => { axis.height = Math.max(axis.height, 73); },
+                                afterBuildTicks: axis => {
+                                    axis.ticks = Object.keys(dateLabelMap).sort().map(date => ({
+                                        value: new Date(`${date}T00:00:00Z`).getTime()
+                                    }));
+                                },
                                 time: { 
                                     unit: 'day',
                                     tooltipFormat: 'yyyy-MM-dd',
@@ -2115,7 +2225,7 @@
                                     }
                                 },
                                 ticks: {
-                                    source: 'data',
+                                    source: 'labels',
                                     autoSkip: false,
                                     color: '#66727F',
                                     font: { size: 12 },
@@ -2127,8 +2237,13 @@
                                         const dStr = date.toISOString().split('T')[0]; 
                                         const label = dateLabelMap[dStr];
                                         if (!label) return null;
-                                        if (value > last.dateObj.getTime()) return label;
-                                        return [dStr, label];
+                                        if (value > last.dateObj.getTime()) return '';
+                                        const repeat = label.match(/\+(\d+)m$/);
+                                        const earlierSameRound = chartData.some(scan => scan.dateObj.getTime() < value && (scan.customLabel || '').split('+')[0] === label.split('+')[0]);
+                                        const shortLabel = repeat && earlierSameRound ? `+${repeat[1]}m` : label;
+                                        const positions = this.ticks.map(tick => this.getPixelForValue(tick.value));
+                                        const minimumGap = Math.min(...positions.slice(1).map((position, i) => position - positions[i]));
+                                        return minimumGap < 90 ? dStr.slice(2) : dStr;
                                     }
                                 },
                                 title: { display: false }
@@ -2144,10 +2259,21 @@
                         },
                         plugins: {
                             datalabels: { display: true },
-                            tooltip: { enabled: false }, 
+                            tooltip: {
+                                enabled: true,
+                                filter: item => ['Solid', 'Solid core', 'Non-solid'].includes(item.dataset.label),
+                                callbacks: {
+                                    title: items => {
+                                        if (!items.length) return '';
+                                        const point = items[0].raw;
+                                        return `${new Date(point.x).toISOString().slice(0, 10)} · ${point.label}`;
+                                    },
+                                    label: item => `${item.dataset.label}: ${Number(item.raw.y).toFixed(1)} mm³`
+                                }
+                            },
                             legend: {
                                 position: 'bottom',
-                                labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 22, color: '#66727F', filter: item => !item.text.endsWith('total trend') }
+                                labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 22, color: '#66727F', filter: item => !item.text.endsWith('total trend') && !item.text.endsWith('total label') && !item.text.endsWith('VDTmax') }
                             }
                         }
                     }
@@ -2705,8 +2831,7 @@
                     currentNoduleId = normalizeNoduleId(data.noduleId || targetNoduleId);
                     noduleLocationInput.value = data.noduleLocation || '';
                     tableData = data.tableData || [];
-                    logScaleCheckbox.checked = data.isLogScale || false;
-                    predictionCheckbox.checked = data.isPrediction || false;
+                    restoreChartPreferences();
                     projectionHorizonSelect.value = String(VDTCore.normalizeProjectionMonths(data.projectionMonths));
                     syncProjectionControls();
                     uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d=>d.id)) + 1 : 0;
@@ -2743,6 +2868,19 @@
                 projectionHorizonSelect.disabled = !predictionCheckbox.checked;
             }
 
+            function restoreChartPreferences() {
+                let settings = {};
+                try { settings = JSON.parse(localStorage.getItem('vdt-chart-preferences') || '{}'); } catch (error) {}
+                logScaleCheckbox.checked = settings.log !== false;
+                predictionCheckbox.checked = settings.projection !== false;
+            }
+
+            function saveChartPreferences() {
+                try { localStorage.setItem('vdt-chart-preferences', JSON.stringify({ log: logScaleCheckbox.checked, projection: predictionCheckbox.checked })); } catch (error) {}
+                syncProjectionControls();
+                calculateAll();
+            }
+
             addScanBtn.addEventListener('click', addScan);
             addNoduleBtn.addEventListener('click', addNodule);
             deleteNoduleBtn.addEventListener('click', deleteCurrentNodule);
@@ -2764,11 +2902,9 @@
             });
             noduleLocationInput.addEventListener('input', renderNoduleTabs);
             sortOrderSelect.addEventListener('change', renderTable);
-            logScaleCheckbox.addEventListener('change', calculateAll);
+            logScaleCheckbox.addEventListener('change', saveChartPreferences);
             predictionCheckbox.addEventListener('change', () => {
-                if (predictionCheckbox.checked) logScaleCheckbox.checked = true;
-                syncProjectionControls();
-                calculateAll();
+                saveChartPreferences();
             });
             projectionHorizonSelect.addEventListener('change', calculateAll);
             managePatientsBtn.addEventListener('click', openPatientManager);
@@ -2802,6 +2938,7 @@
             function initializeEmptyCalculator() {
                 createTooltip();
                 buildScreeningLabelMenu();
+                restoreChartPreferences();
                 syncProjectionControls();
                 tableData = []; uniqueRowId = 0; for(let i=0; i<4; i++) addScan();
                 renderNoduleTabs();

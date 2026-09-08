@@ -341,6 +341,20 @@
         return findFirstMeasuredIndex(scans, volumeKey) > 0;
     }
 
+    function getNewNoduleMaxState(scans, volumeKey, assumedVolume = 15) {
+        if (!Array.isArray(scans)) return null;
+        const appearanceIndex = findFirstMeasuredIndex(scans, volumeKey);
+        const assumed = Number(assumedVolume);
+        if (appearanceIndex <= 0 || !isMeasuredVolume(assumed)) return null;
+        const measuredVolume = Number(scans[appearanceIndex]?.[volumeKey]);
+        if (!isMeasuredVolume(measuredVolume) || measuredVolume < assumed) return null;
+        return {
+            appearanceIndex,
+            previousIndex: appearanceIndex - 1,
+            assumedVolume: assumed
+        };
+    }
+
     function detectNewNodule(scans, volumeKeys = ['solid', 'core', 'nonsolid']) {
         if (!Array.isArray(scans)) return false;
         return volumeKeys.some(volumeKey => isNewNoduleType(scans, volumeKey));
@@ -426,6 +440,7 @@
         isMeasuredVolume,
         findFirstMeasuredIndex,
         isNewNoduleType,
+        getNewNoduleMaxState,
         detectNewNodule,
         isResolvedAtLatest,
         normalizeProjectionMonths,
