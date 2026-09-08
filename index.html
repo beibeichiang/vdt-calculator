@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="./vdt-core.js?v=3.3.9"></script>
+    <script src="./vdt-core.js?v=3.4.0"></script>
     <style>
         :root {
             --primary-color: #176B73;
@@ -583,13 +583,77 @@
         }
 
         /* --- Chart --- */
-        .chart-container {
+        .chart-section {
             margin-top: 18px;
-            padding: 14px;
             background: #fff;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
-            height: 430px;
+            overflow: hidden;
+        }
+
+        .chart-toolbar {
+            min-height: 52px;
+            padding: 9px 14px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--surface-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .chart-title {
+            font-size: 0.95rem;
+            font-weight: 650;
+            color: var(--text-main);
+        }
+
+        .chart-controls {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 9px;
+            flex-wrap: wrap;
+        }
+
+        .chart-controls .new-nodule-control { background: white; }
+
+        .projection-horizon-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 9px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: white;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .projection-horizon-control select {
+            border: 0;
+            background: transparent;
+            color: var(--text-main);
+            font: inherit;
+            outline: none;
+        }
+
+        .projection-horizon-control:has(select:disabled) { opacity: 0.48; }
+
+        .chart-container {
+            padding: 14px;
+            height: 460px;
+            position: relative;
+        }
+
+        .chart-section .prediction-results-container {
+            margin: 10px 14px 0;
+        }
+
+        @media (max-width: 760px) {
+            .chart-toolbar { align-items: flex-start; flex-direction: column; }
+            .chart-controls { justify-content: flex-start; }
         }
 
         .chart-unavailable {
@@ -792,7 +856,7 @@
             <div class="brand-lockup">
                 <img class="app-mark" src="./icons/icon.svg" alt="">
                 <div>
-                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.3.9</span></h1>
+                    <h1>VDT Calculator <span class="version-tag" id="version-log-btn">v3.4.0</span></h1>
                     <p class="eyebrow">Pulmonary nodule volume doubling time</p>
                 </div>
             </div>
@@ -832,16 +896,6 @@
                     <span class="tooltip-icon" data-tooltip="Display order only. Chronological calculation is automatic.">?</span>
                 </div>
 
-                <div class="new-nodule-control">
-                    <input type="checkbox" id="log-scale-checkbox">
-                    <label for="log-scale-checkbox">Log scale</label>
-                    <span class="tooltip-icon" data-tooltip="Use logarithmic scale for Y-axis.">?</span>
-                </div>
-                <div class="new-nodule-control">
-                    <input type="checkbox" id="prediction-checkbox">
-                    <label for="prediction-checkbox">Projection</label>
-                    <span class="tooltip-icon" data-tooltip="Show +3m and +1y volume projections on chart.">?</span>
-                </div>
             </div>
             
             <div class="main-actions">
@@ -878,13 +932,38 @@
             <!-- Totals injected via JS -->
         </div>
 
-        <div class="prediction-results-container hidden" id="prediction-results-container">
-            <!-- Predictions injected via JS -->
-        </div>
-
-        <div class="chart-container">
-            <p id="chart-unavailable" class="chart-unavailable hidden">Chart unavailable. Calculations and saved data remain available.</p>
-            <canvas id="volumeChart"></canvas>
+        <div class="chart-section">
+            <div class="chart-toolbar">
+                <div class="chart-title">Volume trend</div>
+                <div class="chart-controls" aria-label="Chart options">
+                    <div class="new-nodule-control">
+                        <input type="checkbox" id="log-scale-checkbox">
+                        <label for="log-scale-checkbox">Log scale</label>
+                        <span class="tooltip-icon" data-tooltip="Use a logarithmic volume axis. Projection turns this on automatically so constant VDT is shown as a straight line.">?</span>
+                    </div>
+                    <div class="new-nodule-control">
+                        <input type="checkbox" id="prediction-checkbox">
+                        <label for="prediction-checkbox">Projection</label>
+                        <span class="tooltip-icon" data-tooltip="Extend the dashed Total VDT trend from the latest scan.">?</span>
+                    </div>
+                    <label class="projection-horizon-control hidden" for="projection-horizon">
+                        <span>Horizon</span>
+                        <select id="projection-horizon" disabled>
+                            <option value="3">+3m</option>
+                            <option value="6">+6m</option>
+                            <option value="9">+9m</option>
+                            <option value="12">+12m (1y)</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+            <div class="prediction-results-container hidden" id="prediction-results-container">
+                <!-- Predictions injected via JS -->
+            </div>
+            <div class="chart-container">
+                <p id="chart-unavailable" class="chart-unavailable hidden">Chart unavailable. Calculations and saved data remain available.</p>
+                <canvas id="volumeChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -941,6 +1020,17 @@
                 <button id="changelog-close-btn" class="modal-close-btn" style="font-size: 24px; background:none; border:none; cursor:pointer;">&times;</button>
             </div>
             <ul class="changelog-list">
+                <li class="changelog-item">
+                    <div class="changelog-version">v3.4.0 - Total VDT projection</div>
+                    <div class="changelog-date">Current Version</div>
+                    <div class="changelog-desc">
+                        <ul>
+                            <li>Chart controls now stay beside the chart.</li>
+                            <li>Projection automatically opens in log scale and displays +3m, +6m, +9m, and +12m (1y) together.</li>
+                            <li>A dashed Total VDT trend is labelled once and the selected projection continues that same trajectory.</li>
+                        </ul>
+                    </div>
+                </li>
                 <li class="changelog-item">
                     <div class="changelog-version">v3.3.9 - Sequential screening labels and slide-ready reports</div>
                     <div class="changelog-date">Current Version</div>
@@ -1150,6 +1240,7 @@
             const sortOrderSelect = document.getElementById('sort-order');
             const logScaleCheckbox = document.getElementById('log-scale-checkbox');
             const predictionCheckbox = document.getElementById('prediction-checkbox');
+            const projectionHorizonSelect = document.getElementById('projection-horizon');
             const chartCanvas = document.getElementById('volumeChart');
             const chartUnavailable = document.getElementById('chart-unavailable');
             const container = document.querySelector('.container');
@@ -1274,7 +1365,8 @@
                     noduleLocation: noduleLocationInput.value.trim(),
                     tableData: tableData.map(row => ({ ...row })),
                     isLogScale: logScaleCheckbox.checked,
-                    isPrediction: predictionCheckbox.checked
+                    isPrediction: predictionCheckbox.checked,
+                    projectionMonths: VDTCore.normalizeProjectionMonths(projectionHorizonSelect.value)
                 });
             }
 
@@ -1286,6 +1378,8 @@
                 tableData = (data.tableData || []).map(row => ({ ...row }));
                 logScaleCheckbox.checked = Boolean(data.isLogScale);
                 predictionCheckbox.checked = Boolean(data.isPrediction);
+                projectionHorizonSelect.value = String(VDTCore.normalizeProjectionMonths(data.projectionMonths));
+                syncProjectionControls();
                 uniqueRowId = tableData.length ? Math.max(...tableData.map(row => row.id)) + 1 : 0;
                 tableBody.innerHTML = '';
                 renderTable();
@@ -1671,6 +1765,8 @@
                 tableBody.innerHTML = '';
                 logScaleCheckbox.checked = false;
                 predictionCheckbox.checked = false;
+                projectionHorizonSelect.value = '3';
+                syncProjectionControls();
                 uniqueRowId = 0;
                 for(let i=0; i<4; i++) addScan();
                 renderNoduleTabs();
@@ -1821,32 +1917,28 @@
                 if (predictionCheckbox.checked && dataForCalc.length > 0) {
                     predictionResultsContainer.classList.remove('hidden');
                     const last = dataForCalc[dataForCalc.length - 1];
-                    
-                    let vdtS = totalS;
-                    let vdtC = totalC;
-                    let vdtG = totalG;
-
-                    const calcPred = (vdtRes, startVol) => {
-                        if (!vdtRes || !vdtRes.value || vdtRes.value === 'Stable' || parseFloat(vdtRes.value) <= 0) return { m3: 'N/A', y1: 'N/A' };
-                        const v = parseFloat(vdtRes.value);
-                        return { 
-                            m3: (startVol * Math.pow(2, 90/v)).toFixed(1), 
-                            y1: (startVol * Math.pow(2, 365/v)).toFixed(1) 
-                        };
+                    const calcPred = (vdtRes, startVol, months) => {
+                        const targetDate = VDTCore.addProjectionMonths(last.dateObj, months);
+                        const projectionDays = (targetDate - last.dateObj) / 86400000;
+                        if (!VDTCore.isMeasuredVolume(startVol) || !vdtRes || !vdtRes.value) return '-';
+                        if (vdtRes.value === 'Stable') return Number(startVol).toFixed(1);
+                        const projected = VDTCore.projectVolume(startVol, vdtRes.value, projectionDays);
+                        return projected === null ? '-' : projected.toFixed(1);
                     };
 
-                    const predS = calcPred(vdtS, last.solid);
-                    const predC = calcPred(vdtC, last.core);
-                    const predG = calcPred(vdtG, last.nonsolid);
-
-                    const pBox = (label, p) => `
+                    const pBox = (label, result, volume) => `
                         <div class="prediction-result-box">
-                            <div class="label">${label} (3m / 1yr)</div>
-                            <div class="value">${p.m3} / ${p.y1} mm³</div>
+                            <div class="label">${label} (mm³)</div>
+                            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
+                            ${[3,6,9,12].map(months => {
+                                const value = calcPred(result, volume, months);
+                                return `<div><div class="label">+${months}m${months === 12 ? ' (1y)' : ''}</div><span style="font-weight:${value === '-' ? '400' : '700'};color:${value === '-' ? 'var(--text-light)' : 'inherit'}">${value}</span></div>`;
+                            }).join('')}
+                            </div>
                         </div>`;
                     
                     predictionResultsContainer.innerHTML = 
-                        pBox('Solid', predS) + pBox('Solid core', predC) + pBox('Non-solid', predG);
+                        pBox('Solid', totalS, last.solid) + pBox('Solid core', totalC, last.core) + pBox('Non-solid', totalG, last.nonsolid);
                 }
 
                 renderChart(dataForCalc, totalS, totalC, totalG);
@@ -1869,9 +1961,8 @@
                 const validData = chartData.filter(d => !isNaN(d.solid) || !isNaN(d.core) || !isNaN(d.nonsolid));
                 if (validData.length < 1) return;
                 
-                const last = validData[validData.length-1];
-                const date3m = new Date(last.dateObj); date3m.setDate(date3m.getDate() + 90);
-                const date1y = new Date(last.dateObj); date1y.setDate(date1y.getDate() + 365);
+                const last = chartData[chartData.length-1];
+                const projections = [3,6,9,12].map(months => ({ date: VDTCore.addProjectionMonths(last.dateObj, months), label: `+${months}m${months === 12 ? ' (1y)' : ''}` }));
                 
                 const dateLabelMap = {};
                 chartData.forEach(d => {
@@ -1880,8 +1971,7 @@
                 });
                 
                 if (predictionCheckbox.checked) {
-                    dateLabelMap[date3m.toISOString().split('T')[0]] = '+3m Pred';
-                    dateLabelMap[date1y.toISOString().split('T')[0]] = '+1y Pred';
+                    projections.forEach(point => { dateLabelMap[point.date.toISOString().split('T')[0]] = point.label; });
                 }
 
                 const createDs = (label, color, key, vdtKey) => ({
@@ -1894,15 +1984,20 @@
                     })).filter(p => !isNaN(p.y)),
                     borderColor: color,
                     backgroundColor: color,
-                    tension: 0.1,
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1.5,
+                    tension: 0,
                     datalabels: {
                         align: 'top',
-                        color: '#333',
-                        font: { weight: 'bold', size: 11 },
-                        backgroundColor: 'rgba(255,255,255,0.85)',
+                        color: color,
+                        font: { weight: '500', size: 11 },
+                        backgroundColor: 'rgba(255,255,255,0.9)',
                         borderRadius: 4,
-                        padding: 4,
-                        offset: 4,
+                        padding: 2,
+                        offset: 7,
                         formatter: (v, ctx) => {
                             let str = `${v.y.toFixed(1)} mm³`;
                             const point = ctx.dataset.data[ctx.dataIndex];
@@ -1920,38 +2015,79 @@
                     createDs('Non-solid', '#4F7C6A', 'nonsolid', 'vdtNonsolid')
                 ];
 
-                if (predictionCheckbox.checked && validData.length > 0) {
-                    const addPredLine = (label, color, startVol, vdtRes) => {
-                         if(!vdtRes || !vdtRes.value || vdtRes.value === 'Stable' || parseFloat(vdtRes.value) <= 0) return;
-                         const v = parseFloat(vdtRes.value);
-                         const p3 = startVol * Math.pow(2, 90/v);
-                         const p1 = startVol * Math.pow(2, 365/v);
-                         
-                         datasets.push({
-                             label: label + ' Pred',
-                             data: [{x: last.dateObj, y: startVol}, {x: date3m, y: p3}, {x: date1y, y: p1}],
-                             borderColor: color,
-                             borderDash: [5, 5],
-                             pointRadius: 4,
-                             pointBackgroundColor: 'white',
-                             datalabels: {
-                                 align: 'right',
-                                 color: color,
-                                 backgroundColor: 'rgba(255,255,255,0.85)',
-                                 borderRadius: 4,
-                                 padding: 4,
-                                 formatter: (v, ctx) => {
-                                     if(ctx.dataIndex === 0) return null;
-                                     return `${v.y.toFixed(1)} mm³`;
-                                 }
-                             }
-                         });
-                    };
+                const addTotalTrend = (seriesLabel, totalLabel, color, key, vdtRes) => {
+                    const measured = chartData
+                        .filter(scan => VDTCore.isMeasuredVolume(scan[key]))
+                        .map(scan => ({ x: scan.dateObj, y: Number(scan[key]) }));
+                    if (measured.length < 2 || !vdtRes || !vdtRes.value) return;
 
-                    addPredLine('Solid', '#3A6EA5', last.solid, totS);
-                    addPredLine('Solid core', '#A44A4A', last.core, totC);
-                    addPredLine('Non-solid', '#4F7C6A', last.nonsolid, totG);
-                }
+                    const firstMeasured = measured[0];
+                    const lastMeasured = measured[measured.length - 1];
+                    const totalDays = (lastMeasured.x - firstMeasured.x) / 86400000;
+                    if (totalDays <= 0) return;
+
+                    const stable = firstMeasured.y === lastMeasured.y || vdtRes.value === 'Stable';
+                    const exactVdt = stable
+                        ? null
+                        : (Math.log(2) * totalDays) / (Math.log(lastMeasured.y) - Math.log(firstMeasured.y));
+                    if (!stable && (!Number.isFinite(exactVdt) || exactVdt === 0)) return;
+
+                    const middleDate = new Date((firstMeasured.x.getTime() + lastMeasured.x.getTime()) / 2);
+                    const middleDays = (middleDate - firstMeasured.x) / 86400000;
+                    const middleVolume = stable
+                        ? firstMeasured.y
+                        : VDTCore.projectVolume(firstMeasured.y, exactVdt, middleDays);
+                    const trendData = [
+                        firstMeasured,
+                        { x: middleDate, y: middleVolume, role: 'total', text: `${totalLabel}: ${stable ? 'Stable' : `${vdtRes.value}d`}` },
+                        lastMeasured
+                    ];
+
+                    const latestIsMeasured = lastMeasured.x.getTime() === last.dateObj.getTime()
+                        && VDTCore.isMeasuredVolume(last[key]);
+                    if (predictionCheckbox.checked && latestIsMeasured) projections.forEach(({date: projectionDate, label: projectionLabel}) => {
+                        const projectionDays = (projectionDate - lastMeasured.x) / 86400000;
+                        const projectedVolume = stable
+                            ? lastMeasured.y
+                            : VDTCore.projectVolume(lastMeasured.y, exactVdt, projectionDays);
+                        if (projectedVolume !== null) {
+                            trendData.push({
+                                x: projectionDate,
+                                y: projectedVolume,
+                                role: 'projection',
+                                text: `${projectedVolume.toFixed(1)} mm³`
+                            });
+                        }
+                    });
+
+                    datasets.push({
+                        label: `${seriesLabel} total trend`,
+                        data: trendData,
+                        borderColor: color,
+                        backgroundColor: color,
+                        borderWidth: 1.5,
+                        borderDash: [5, 5],
+                        tension: 0,
+                        pointRadius: context => context.raw?.role === 'projection' ? 4 : 0,
+                        pointBackgroundColor: 'white',
+                        pointBorderColor: color,
+                        datalabels: {
+                            display: context => Boolean(context.dataset.data[context.dataIndex]?.role),
+                            align: context => context.dataset.data[context.dataIndex]?.role === 'total' ? 'bottom' : (context.dataIndex % 2 ? 'top' : 'bottom'),
+                            offset: 6,
+                            color: color,
+                            font: { weight: '500', size: 11 },
+                            backgroundColor: 'rgba(255,255,255,0.92)',
+                            borderRadius: 4,
+                            padding: 2,
+                            formatter: value => value.text || null
+                        }
+                    });
+                };
+
+                addTotalTrend('Solid', 'Total VDT', '#3A6EA5', 'solid', totS);
+                addTotalTrend('Solid core', 'Total VDTcore', '#A44A4A', 'core', totC);
+                addTotalTrend('Non-solid', 'Total VDTGGO', '#4F7C6A', 'nonsolid', totG);
 
                 try {
                     volumeChart = new Chart(ctx, {
@@ -1962,11 +2098,15 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         layout: {
-                             padding: { top: 40, left: 10, right: 100, bottom: 0 }
+                             padding: { top: 32, left: 16, right: 42, bottom: 8 }
                         },
                         scales: {
                             x: { 
                                 type: 'time', 
+                                min: chartData[0].dateObj.getTime() - Math.max(86400000, ((predictionCheckbox.checked ? projections[3].date : last.dateObj) - chartData[0].dateObj) * 0.045),
+                                max: (predictionCheckbox.checked ? projections[3].date : last.dateObj).getTime() + Math.max(86400000, ((predictionCheckbox.checked ? projections[3].date : last.dateObj) - chartData[0].dateObj) * 0.045),
+                                grid: { display: false },
+                                border: { color: '#D8DEE5' },
                                 time: { 
                                     unit: 'day',
                                     tooltipFormat: 'yyyy-MM-dd',
@@ -1977,29 +2117,38 @@
                                 ticks: {
                                     source: 'data',
                                     autoSkip: false,
+                                    color: '#66727F',
+                                    font: { size: 12 },
+                                    padding: 10,
                                     maxRotation: 0, 
                                     minRotation: 0,
                                     callback: function(value, index, values) {
                                         const date = new Date(value);
                                         const dStr = date.toISOString().split('T')[0]; 
-                                        let label = '';
-                                        for (const k in dateLabelMap) {
-                                            if (k === dStr) label = dateLabelMap[k];
-                                        }
-                                        return [dStr, label]; 
+                                        const label = dateLabelMap[dStr];
+                                        if (!label) return null;
+                                        if (value > last.dateObj.getTime()) return label;
+                                        return [dStr, label];
                                     }
                                 },
                                 title: { display: false }
                             },
                             y: { 
                                 type: useLog ? 'logarithmic' : 'linear',
-                                title: { display: true, text: 'Volume (mm³)' }
+                                grid: { display: false },
+                                border: { display: true, color: '#D8DEE5' },
+                                grace: '12%',
+                                ticks: { maxTicksLimit: 6, color: '#66727F', font: { size: 12 } },
+                                title: { display: true, text: 'Volume (mm³)', font: { size: 12 } }
                             }
                         },
                         plugins: {
                             datalabels: { display: true },
                             tooltip: { enabled: false }, 
-                            legend: { position: 'bottom' }
+                            legend: {
+                                position: 'bottom',
+                                labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 22, color: '#66727F', filter: item => !item.text.endsWith('total trend') }
+                            }
                         }
                     }
                     });
@@ -2327,6 +2476,7 @@
                             isNewNodule: importedRecord.isNewNodule !== undefined ? importedRecord.isNewNodule : (existing.isNewNodule || false),
                             isLogScale: existing.isLogScale || false,
                             isPrediction: existing.isPrediction || false,
+                            projectionMonths: VDTCore.normalizeProjectionMonths(existing.projectionMonths),
                         };
                         localStorage.setItem(storageKey, JSON.stringify(dataToSave));
                         importCount++;
@@ -2529,7 +2679,7 @@
                     .map(scan => ({ ...scan, dateObj: parseDateString(scan.date) }))
                     .filter(scan => scan.dateObj)
                     .sort((a, b) => a.dateObj - b.dateObj);
-                const data = { ...existing, patientId: pid, noduleId, noduleLocation: noduleLocationInput.value.trim(), tableData: tableData, isNewNodule: VDTCore.detectNewNodule(datedScans), isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
+                const data = { ...existing, patientId: pid, noduleId, noduleLocation: noduleLocationInput.value.trim(), tableData: tableData, isNewNodule: VDTCore.detectNewNodule(datedScans), isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, projectionMonths: VDTCore.normalizeProjectionMonths(projectionHorizonSelect.value), isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
                 try {
                     localStorage.setItem(storageKey, JSON.stringify(data));
                 } catch (error) {
@@ -2557,6 +2707,8 @@
                     tableData = data.tableData || [];
                     logScaleCheckbox.checked = data.isLogScale || false;
                     predictionCheckbox.checked = data.isPrediction || false;
+                    projectionHorizonSelect.value = String(VDTCore.normalizeProjectionMonths(data.projectionMonths));
+                    syncProjectionControls();
                     uniqueRowId = tableData.length > 0 ? Math.max(...tableData.map(d=>d.id)) + 1 : 0;
                     tableBody.innerHTML = ''; 
                     renderTable();
@@ -2587,6 +2739,10 @@
             }
             function saveAndNew() { if (saveData()) clearAll(); }
 
+            function syncProjectionControls() {
+                projectionHorizonSelect.disabled = !predictionCheckbox.checked;
+            }
+
             addScanBtn.addEventListener('click', addScan);
             addNoduleBtn.addEventListener('click', addNodule);
             deleteNoduleBtn.addEventListener('click', deleteCurrentNodule);
@@ -2609,7 +2765,12 @@
             noduleLocationInput.addEventListener('input', renderNoduleTabs);
             sortOrderSelect.addEventListener('change', renderTable);
             logScaleCheckbox.addEventListener('change', calculateAll);
-            predictionCheckbox.addEventListener('change', calculateAll);
+            predictionCheckbox.addEventListener('change', () => {
+                if (predictionCheckbox.checked) logScaleCheckbox.checked = true;
+                syncProjectionControls();
+                calculateAll();
+            });
+            projectionHorizonSelect.addEventListener('change', calculateAll);
             managePatientsBtn.addEventListener('click', openPatientManager);
             modalCloseBtn.addEventListener('click', () => patientManagerModal.classList.add('hidden'));
             patientManagerModal.addEventListener('click', (e) => { if(e.target===patientManagerModal) patientManagerModal.classList.add('hidden'); });
@@ -2641,6 +2802,7 @@
             function initializeEmptyCalculator() {
                 createTooltip();
                 buildScreeningLabelMenu();
+                syncProjectionControls();
                 tableData = []; uniqueRowId = 0; for(let i=0; i<4; i++) addScan();
                 renderNoduleTabs();
             }
