@@ -191,6 +191,7 @@
             color: var(--text-light);
             font-size: 0.78rem;
         }
+        .patient-actions { margin-left: auto; display: flex; gap: 8px; }
 
         .nodule-switcher {
             display: flex;
@@ -341,7 +342,7 @@
             overflow-x: auto;
             border-radius: var(--radius-md);
             border: 1px solid var(--border-color);
-            margin-bottom: 16px;
+            margin-bottom: 0;
             background: #FFFFFF;
         }
 
@@ -364,6 +365,21 @@
             border-bottom: 1px solid var(--border-color);
             white-space: nowrap;
         }
+        .date-sort-btn {
+            border: 0;
+            padding: 2px 4px;
+            margin-left: 3px;
+            background: transparent;
+            color: var(--primary-color);
+            font: inherit;
+            cursor: pointer;
+        }
+        .add-scan-bar {
+            width: 100%; height: 27px; border: 1px solid var(--border-color); border-top: 0;
+            border-radius: 0 0 var(--radius-md) var(--radius-md); background: #F7F8F9;
+            color: #73808B; font-size: 1rem; cursor: pointer;
+        }
+        .add-scan-bar:hover { color: var(--primary-color); background: #EEF5F5; }
 
         .data-table td {
             padding: 5px 3px;
@@ -544,25 +560,29 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 10px;
-            margin-top: 14px;
+            margin-top: 8px;
         }
 
         .total-result-box, .prediction-result-box {
             background: var(--surface-subtle);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
-            padding: 13px 14px;
+            padding: 8px 10px;
             text-align: center;
         }
 
         .total-result-box {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: repeat(4, auto);
             align-items: center;
             justify-content: center;
-            gap: 5px;
+            gap: 9px;
+            min-height: 44px;
+            text-align: center;
         }
-        .total-result-box .copy-btn { margin-top: 2px; }
+        .total-result-box .copy-btn { margin: 0; }
+        .total-result-box .value { font-size: 1.05rem; }
+        .total-result-box .extra-info { margin: 0; }
         
         .prediction-results-container .prediction-result-box {
             background-color: #F7F9FB;
@@ -584,23 +604,14 @@
 
         /* --- Chart --- */
         .chart-section {
-            margin-top: 18px;
+            margin-top: 8px;
             background: #fff;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             overflow: hidden;
         }
 
-        .chart-toolbar {
-            min-height: 52px;
-            padding: 9px 14px;
-            border-bottom: 1px solid var(--border-color);
-            background: var(--surface-subtle);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-        }
+        .chart-toolbar { display: none; }
 
         .chart-title {
             font-size: 0.95rem;
@@ -642,17 +653,24 @@
         .projection-horizon-control:has(select:disabled) { opacity: 0.48; }
 
         .chart-container {
-            padding: 14px;
-            height: 460px;
+            padding: 12px;
+            height: 420px;
             position: relative;
         }
+        .chart-controls-overlay {
+            position: absolute; top: 8px; left: 10px; z-index: 4;
+            display: flex; pointer-events: none;
+        }
+        .chart-controls-overlay .new-nodule-control { background: rgba(255,255,255,.94); pointer-events: auto; padding: 4px 7px; }
 
         .chart-section .prediction-results-container {
-            margin: 10px 14px 0;
+            margin: 0;
         }
+        .prediction-panel { position: relative; padding: 35px 12px 12px; }
+        .projection-toggle { position: absolute; left: 12px; top: 5px; z-index: 3; }
+        .projection-toggle .new-nodule-control { padding: 4px 7px; background: #FFFFFF; }
 
         @media (max-width: 760px) {
-            .chart-toolbar { align-items: flex-start; flex-direction: column; }
             .chart-controls { justify-content: flex-start; }
         }
 
@@ -880,29 +898,15 @@
             <input type="text" id="nodule-location" aria-label="Nodule location (optional)" placeholder="e.g. RUL #133" autocomplete="off" spellcheck="false">
             <button type="button" class="control-btn add-nodule-btn" id="add-nodule-btn">+ Add nodule</button>
             <button type="button" class="delete-nodule-btn" id="delete-nodule-btn" aria-label="Delete current nodule" title="Delete current nodule">&times;</button>
-            <span class="patient-id-hint">Stored locally in this browser. Use Backup for a portable copy.</span>
-        </div>
-
-        <div class="table-controls">
-            <div class="left-controls">
-                <button class="control-btn add-row-btn" id="add-scan-btn">+ Add scan</button>
-                
-                <div class="sort-control">
-                    <label for="sort-order">Order</label>
-                    <select id="sort-order">
-                        <option value="newest_first" selected>Newest First</option>
-                        <option value="oldest_first">Oldest First</option>
-                    </select>
-                    <span class="tooltip-icon" data-tooltip="Display order only. Chronological calculation is automatic.">?</span>
-                </div>
-
-            </div>
-            
-            <div class="main-actions">
+            <div class="patient-actions">
                 <button class="control-btn clear-btn" id="clear-btn">Reset</button>
                 <button class="control-btn save-btn" id="save-btn">Save</button>
                 <button class="control-btn export-new-btn" id="export-new-btn">Save &amp; next</button>
             </div>
+            <select id="sort-order" class="hidden" aria-hidden="true">
+                <option value="newest_first" selected>Newest First</option>
+                <option value="oldest_first">Oldest First</option>
+            </select>
         </div>
 
         <div class="data-table-wrapper">
@@ -911,7 +915,7 @@
                     <tr>
                         <th class="row-controls"></th>
                         <th class="scan-number-col">Screening round</th>
-                        <th>Date</th>
+                        <th>Date <button type="button" class="date-sort-btn" id="date-sort-btn" title="Change display order" aria-label="Sort dates newest first">↓</button></th>
                         <th>Solid (mm³)</th>
                         <th title="Solid component volume within a part-solid nodule">Solid core (mm³)</th>
                         <th>Non-solid (mm³)</th>
@@ -925,6 +929,7 @@
                 </tbody>
             </table>
         </div>
+        <button class="add-scan-bar" id="add-scan-btn" title="Add a new scan" aria-label="Add scan">＋</button>
 
         <div id="screening-label-menu" class="screening-label-menu" role="menu" aria-label="Choose screening round"></div>
 
@@ -933,36 +938,29 @@
         </div>
 
         <div class="chart-section">
-            <div class="chart-toolbar">
-                <div class="chart-title">Volume trend</div>
-                <div class="chart-controls" aria-label="Chart options">
+            <div class="chart-container">
+                <div class="chart-controls-overlay" aria-label="Chart options">
                     <div class="new-nodule-control">
                         <input type="checkbox" id="log-scale-checkbox">
                         <label for="log-scale-checkbox">Log scale</label>
-                        <span class="tooltip-icon" data-tooltip="Use a logarithmic volume axis. Projection turns this on automatically so constant VDT is shown as a straight line.">?</span>
+                        <span class="tooltip-icon" data-tooltip="Use a logarithmic volume axis.">?</span>
                     </div>
+                </div>
+                <select id="projection-horizon" class="hidden" disabled aria-hidden="true"><option value="3">+3m</option></select>
+                <p id="chart-unavailable" class="chart-unavailable hidden">Chart unavailable. Calculations and saved data remain available.</p>
+                <canvas id="volumeChart"></canvas>
+            </div>
+            <div class="prediction-panel">
+                <div class="projection-toggle">
                     <div class="new-nodule-control">
                         <input type="checkbox" id="prediction-checkbox">
                         <label for="prediction-checkbox">Projection</label>
                         <span class="tooltip-icon" data-tooltip="Extend the dashed Total VDT trend from the latest scan.">?</span>
                     </div>
-                    <label class="projection-horizon-control hidden" for="projection-horizon">
-                        <span>Horizon</span>
-                        <select id="projection-horizon" disabled>
-                            <option value="3">+3m</option>
-                            <option value="6">+6m</option>
-                            <option value="9">+9m</option>
-                            <option value="12">+12m (1y)</option>
-                        </select>
-                    </label>
                 </div>
-            </div>
-            <div class="prediction-results-container hidden" id="prediction-results-container">
-                <!-- Predictions injected via JS -->
-            </div>
-            <div class="chart-container">
-                <p id="chart-unavailable" class="chart-unavailable hidden">Chart unavailable. Calculations and saved data remain available.</p>
-                <canvas id="volumeChart"></canvas>
+                <div class="prediction-results-container hidden" id="prediction-results-container">
+                    <!-- Predictions injected via JS -->
+                </div>
             </div>
         </div>
     </div>
@@ -1238,6 +1236,7 @@
             const totalResultsContainer = document.getElementById('total-results-container');
             const predictionResultsContainer = document.getElementById('prediction-results-container');
             const sortOrderSelect = document.getElementById('sort-order');
+            const dateSortBtn = document.getElementById('date-sort-btn');
             const logScaleCheckbox = document.getElementById('log-scale-checkbox');
             const predictionCheckbox = document.getElementById('prediction-checkbox');
             const projectionHorizonSelect = document.getElementById('projection-horizon');
@@ -1742,8 +1741,10 @@
             }
 
             function addScan() {
-                tableData.push({ id: uniqueRowId++, date: '', solid: '', core: '', nonsolid: '', isBaseline: false, customLabel: '', labelSource: 'auto', isLabelAnchor: false });
+                const newRow = { id: uniqueRowId++, date: '', solid: '', core: '', nonsolid: '', isBaseline: false, customLabel: '', labelSource: 'auto', isLabelAnchor: false };
+                tableData.push(newRow);
                 renderTable();
+                requestAnimationFrame(() => tableBody.querySelector(`tr[data-id="${newRow.id}"] .date-input`)?.focus());
             }
 
             function deleteRow(rowId) {
@@ -1915,13 +1916,17 @@
                 if (predictionCheckbox.checked && dataForCalc.length > 0) {
                     predictionResultsContainer.classList.remove('hidden');
                     const last = dataForCalc[dataForCalc.length - 1];
+                    const formatProjection = value => {
+                        if (!Number.isFinite(value)) return '-';
+                        return Math.round(value).toLocaleString('en-US');
+                    };
                     const calcPred = (vdtRes, startVol, months) => {
                         const targetDate = VDTCore.addProjectionMonths(last.dateObj, months);
                         const projectionDays = (targetDate - last.dateObj) / 86400000;
                         if (!VDTCore.isMeasuredVolume(startVol) || !vdtRes || !vdtRes.value) return '-';
-                        if (vdtRes.value === 'Stable') return Number(startVol).toFixed(1);
+                        if (vdtRes.value === 'Stable') return formatProjection(Number(startVol));
                         const projected = VDTCore.projectVolume(startVol, vdtRes.value, projectionDays);
-                        return projected === null ? '-' : projected.toFixed(1);
+                        return projected === null ? '-' : formatProjection(projected);
                     };
 
                     const pBox = (label, result, volume) => `
@@ -2097,9 +2102,9 @@
                         if (projectedVolume !== null) {
                             trendData.push({
                                 x: projectionDate,
-                                y: projectedVolume,
                                 role: 'projection',
-                                text: `${projectedVolume.toFixed(1)} mm³`
+                                text: `${Math.round(projectedVolume).toLocaleString('en-US')} mm³`,
+                                y: projectedVolume
                             });
                         }
                     });
@@ -2902,6 +2907,13 @@
             });
             noduleLocationInput.addEventListener('input', renderNoduleTabs);
             sortOrderSelect.addEventListener('change', renderTable);
+            dateSortBtn.addEventListener('click', () => {
+                const newestFirst = sortOrderSelect.value === 'newest_first';
+                sortOrderSelect.value = newestFirst ? 'oldest_first' : 'newest_first';
+                dateSortBtn.textContent = newestFirst ? '↑' : '↓';
+                dateSortBtn.setAttribute('aria-label', newestFirst ? 'Sort dates oldest first' : 'Sort dates newest first');
+                renderTable();
+            });
             logScaleCheckbox.addEventListener('change', saveChartPreferences);
             predictionCheckbox.addEventListener('change', () => {
                 saveChartPreferences();
