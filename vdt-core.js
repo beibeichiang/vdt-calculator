@@ -220,6 +220,25 @@
         }
 
         const usedIds = new Set([anchor.id]);
+
+        // When the chosen anchor is a short-term repeat, recover the routine
+        // scan for that same screening stage first. Real appointment dates can
+        // drift by a few days, so a routine scan one day before the calculated
+        // month boundary must not fall into the preceding annual stage.
+        if (parsedAnchor.repeatIndex > 0) {
+            const expectedGap = parsedAnchor.offsetMonths;
+            const routineCandidate = scans
+                .filter(scan => scan.id !== anchor.id && scan.dateObj < anchor.dateObj)
+                .map(scan => ({ scan, gap: monthsBetween(anchor.dateObj, scan.dateObj) }))
+                .filter(item => item.gap >= expectedGap - 1.5 && item.gap <= expectedGap + 2.5)
+                .sort((a, b) => Math.abs(a.gap - expectedGap) - Math.abs(b.gap - expectedGap))[0]?.scan || null;
+            if (routineCandidate) {
+                routineDates[parsedAnchor.stageIndex] = routineCandidate.dateObj;
+                routineIds[parsedAnchor.stageIndex] = routineCandidate.id;
+                usedIds.add(routineCandidate.id);
+            }
+        }
+
         function findRoutineCandidate(referenceDate, gapMonths, direction) {
             const minGap = gapMonths === 24 ? 21.5 : 9.5;
             const maxGap = gapMonths === 24 ? 32 : 21.5;

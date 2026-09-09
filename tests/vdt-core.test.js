@@ -191,6 +191,17 @@ test('partial scan series can be inferred from a second annual anchor', () => {
     assert.equal(labels[3], '2nd Annual+3m');
 });
 
+test('second annual repeat anchor recovers its routine scan despite one-day date drift', () => {
+    const labels = inferScanLabels([
+        { id: 1, date: '2025-02-07' },
+        { id: 2, date: '2026-05-27' },
+        { id: 3, date: '2026-08-28', customLabel: '2nd Annual+3m', isLabelAnchor: true }
+    ]);
+    assert.equal(labels[1], '1st Annual');
+    assert.equal(labels[2], '2nd Annual');
+    assert.equal(labels[3], '2nd Annual+3m');
+});
+
 test('scan labels fall back to relative scan numbers without an anchor', () => {
     assert.deepEqual({ ...inferScanLabels([
         { id: 1, date: '2024-01-01' },
