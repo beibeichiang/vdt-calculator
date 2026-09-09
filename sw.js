@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vdt-calculator-v3.4.0-compact-layout-final';
+const CACHE_NAME = 'vdt-calculator-v3.4.0-laptop-layout';
 const APP_SHELL = [
   './',
   './index.html',

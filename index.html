@@ -46,7 +46,7 @@
             background: var(--bg-color);
             color: var(--text-main);
             margin: 0;
-            padding: 24px;
+            padding: 14px;
             line-height: 1.45;
             -webkit-font-smoothing: antialiased;
         }
@@ -56,7 +56,7 @@
             max-width: 1520px;
             margin: 0 auto;
             background-color: var(--card-bg);
-            padding: 24px;
+            padding: 18px;
             border: 1px solid rgba(205, 213, 221, 0.9);
             border-radius: 16px;
             box-shadow: var(--shadow-md);
@@ -68,13 +68,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 18px;
-            padding-bottom: 18px;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
             border-bottom: 1px solid var(--border-color);
         }
 
         h1 {
-            font-size: 23px;
+            font-size: 20px;
             font-weight: 650;
             letter-spacing: -0.025em;
             margin: 0;
@@ -84,22 +84,22 @@
         .brand-lockup {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 9px;
             min-width: 0;
         }
 
         .app-mark {
-            width: 44px;
-            height: 44px;
-            border-radius: 11px;
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
             box-shadow: 0 3px 10px rgba(23, 54, 77, 0.18);
             flex: none;
         }
 
         .eyebrow {
-            margin: 2px 0 0;
+            margin: 0;
             color: var(--text-light);
-            font-size: 0.8rem;
+            font-size: 0.72rem;
         }
 
         .local-badge {
@@ -157,9 +157,9 @@
             align-items: center;
             justify-content: flex-start;
             gap: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
             background: var(--surface-subtle);
-            padding: 12px 14px;
+            padding: 8px 12px;
             border-radius: var(--radius-md);
             border: 1px solid var(--border-color);
         }
@@ -375,9 +375,9 @@
             cursor: pointer;
         }
         .add-scan-bar {
-            width: 100%; height: 27px; border: 1px solid var(--border-color); border-top: 0;
+            width: 100%; height: 20px; border: 1px solid var(--border-color); border-top: 0;
             border-radius: 0 0 var(--radius-md) var(--radius-md); background: #F7F8F9;
-            color: #73808B; font-size: 1rem; cursor: pointer;
+            color: #73808B; font-size: 0.85rem; line-height: 1; cursor: pointer;
         }
         .add-scan-bar:hover { color: var(--primary-color); background: #EEF5F5; }
 
@@ -653,8 +653,8 @@
         .projection-horizon-control:has(select:disabled) { opacity: 0.48; }
 
         .chart-container {
-            padding: 12px;
-            height: 420px;
+            padding: 10px 12px 4px;
+            height: 350px;
             position: relative;
         }
         .chart-controls-overlay {
@@ -2207,7 +2207,7 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         layout: {
-                             padding: { top: 32, left: 16, right: 110, bottom: 8 }
+                             padding: { top: 32, left: 16, right: 70, bottom: 8 }
                         },
                         scales: {
                             x: { 
@@ -2277,8 +2277,9 @@
                                 }
                             },
                             legend: {
-                                position: 'bottom',
-                                labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 22, color: '#66727F', filter: item => !item.text.endsWith('total trend') && !item.text.endsWith('total label') && !item.text.endsWith('VDTmax') }
+                                position: 'right',
+                                align: 'center',
+                                labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 7, color: '#66727F', filter: item => !item.text.endsWith('total trend') && !item.text.endsWith('total label') && !item.text.endsWith('VDTmax') }
                             }
                         }
                     }
