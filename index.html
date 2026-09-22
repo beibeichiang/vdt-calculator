@@ -156,6 +156,7 @@
             display: flex;
             align-items: center;
             justify-content: flex-start;
+            flex-wrap: wrap;
             gap: 12px;
             margin-bottom: 12px;
             background: var(--surface-subtle);
@@ -164,14 +165,14 @@
             border: 1px solid var(--border-color);
         }
 
-        .patient-id-container label {
+        .patient-id-container > label {
             font-size: 0.82rem;
             font-weight: 600;
             color: var(--text-main);
             white-space: nowrap;
         }
 
-        .patient-id-container input {
+        .patient-id-container > input {
             padding: 8px 10px;
             border: 1px solid #C8D0D8;
             border-radius: var(--radius-sm);
@@ -181,7 +182,7 @@
             transition: border-color 0.2s;
         }
         .patient-id-container #nodule-location { width: 160px; }
-        .patient-id-container input:focus {
+        .patient-id-container > input:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(23, 107, 115, 0.12);
         }
@@ -192,6 +193,33 @@
             font-size: 0.78rem;
         }
         .patient-actions { margin-left: auto; display: flex; gap: 8px; }
+
+        .label-control {
+            position: relative; order: 2; flex: 1 0 100%; display: flex; align-items: center; gap: 5px;
+            min-height: 28px; padding-top: 7px; border-top: 1px solid var(--border-color);
+        }
+        .label-summary-title { margin-right: 2px; color: var(--text-light); font-size: .76rem; font-weight: 600; }
+        .current-labels-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+        .current-label-chip {
+            padding: 4px 8px; border-radius: 999px; background: #EAF1F4; color: #245F67;
+            font-size: .76rem; font-weight: 600; line-height: 1.2; white-space: nowrap;
+        }
+        .label-picker {
+            position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
+            width: 320px; max-width: calc(100vw - 32px); padding: 9px; border: 1px solid var(--border-color);
+            border-radius: var(--radius-md); background: #fff; box-shadow: var(--shadow-md);
+        }
+        .label-picker-list { display: grid; gap: 4px; max-height: 220px; overflow-y: auto; }
+        .label-picker-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 5px; }
+        .label-picker-row label { display: flex; align-items: center; gap: 8px; min-width: 0; width: auto; }
+        .label-picker-row label input[type="checkbox"] { width: auto; flex: none; margin: 0; }
+        .label-picker-row label span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .label-icon-btn { border: 0; background: transparent; color: #75818C; cursor: pointer; padding: 3px 5px; }
+        .label-icon-btn:hover { color: var(--primary-color); background: #EEF5F5; border-radius: 5px; }
+        .label-add-row { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color); }
+        .label-add-row input { width: 100% !important; min-width: 0; padding: 6px 8px !important; }
+        .record-labels { display: flex; flex-wrap: wrap; gap: 4px; }
+        .record-label-chip { padding: 2px 6px; border-radius: 999px; background: #EAF1F4; color: #245F67; font-size: .72rem; white-space: nowrap; }
 
         .nodule-switcher {
             display: flex;
@@ -430,8 +458,8 @@
             .header-actions { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
             .local-badge { display: none; }
             .patient-id-container { align-items: flex-start; flex-wrap: wrap; }
-            .patient-id-container label { width: 100%; }
-            .patient-id-container input { width: 100%; flex: 1 0 100%; }
+            .patient-id-container > label { width: 100%; }
+            .patient-id-container > input { width: 100%; flex: 1 0 100%; }
             .patient-id-hint { width: 100%; margin-left: 0; }
             .left-controls { width: 100%; }
             .main-actions { width: 100%; margin-left: 0; flex-wrap: wrap; }
@@ -740,11 +768,13 @@
 
         .patient-list-table {
             width: 100%;
+            min-width: 980px;
+            table-layout: fixed;
             border-collapse: collapse;
         }
         .patient-list-table th, .patient-list-table td {
             border: 1px solid var(--border-color);
-            padding: 8px 12px;
+            padding: 8px;
             text-align: left;
             vertical-align: middle;
         }
@@ -752,6 +782,27 @@
             background-color: #F3F5F7;
             font-weight: 600;
         }
+        .worklist-sort-btn {
+            border: 0; background: transparent; padding: 0; color: inherit;
+            font: inherit; font-weight: inherit; cursor: pointer; white-space: nowrap;
+        }
+        .worklist-sort-btn:hover { color: var(--primary-color); }
+        .patient-list-table th:nth-child(1) { width: 44px; }
+        .patient-list-table th:nth-child(2) { width: 135px; }
+        .patient-list-table th:nth-child(3) { width: 80px; }
+        .patient-list-table th:nth-child(4) { width: 90px; }
+        .patient-list-table th:nth-child(5) { width: 130px; }
+        .patient-list-table th:nth-child(6),
+        .patient-list-table th:nth-child(7),
+        .patient-list-table th:nth-child(8) { width: 95px; }
+        .patient-list-table th:nth-child(9) { width: 125px; }
+        .patient-list-table th:nth-child(10) { width: 110px; }
+        .patient-list-table td:nth-child(2),
+        .patient-list-table td:nth-child(3),
+        .patient-list-table td:nth-child(4),
+        .patient-list-table td:nth-child(6),
+        .patient-list-table td:nth-child(7),
+        .patient-list-table td:nth-child(8) { white-space: nowrap; }
         
         .patient-actions {
             display: flex;
@@ -762,6 +813,9 @@
             padding: 4px 12px;
             height: 28px;
         }
+        .worklist-actions { white-space: nowrap; }
+        .worklist-actions button { min-width: 0; padding: 4px 8px; }
+        .worklist-actions button + button { margin-left: 5px; }
 
         .notes-area {
             width: 100%;
@@ -896,6 +950,18 @@
                 <div class="nodule-tabs" id="nodule-tabs"></div>
             </div>
             <input type="text" id="nodule-location" aria-label="Nodule location (optional)" placeholder="e.g. RUL #133" autocomplete="off" spellcheck="false">
+            <div class="label-control">
+                <span class="label-summary-title">Labels</span>
+                <div class="current-labels-summary" id="current-labels-summary" aria-live="polite"></div>
+                <button type="button" class="control-btn" id="record-labels-btn">+ Label</button>
+                <div class="label-picker hidden" id="label-picker">
+                    <div class="label-picker-list" id="label-picker-list"></div>
+                    <div class="label-add-row">
+                        <input type="text" id="new-label-input" placeholder="New label" maxlength="40">
+                        <button type="button" class="control-btn" id="add-label-btn">Add</button>
+                    </div>
+                </div>
+            </div>
             <button type="button" class="control-btn add-nodule-btn" id="add-nodule-btn">+ Add nodule</button>
             <button type="button" class="delete-nodule-btn" id="delete-nodule-btn" aria-label="Delete current nodule" title="Delete current nodule">&times;</button>
             <div class="patient-actions">
@@ -975,7 +1041,7 @@
                 <button id="modal-close-btn" class="modal-close-btn" style="font-size: 24px; background:none; border:none; cursor:pointer;">&times;</button>
             </div>
             <div class="patient-list-controls">
-                <input type="search" id="patient-search-input" placeholder="Search Patient or Nodule ID...">
+                <input type="search" id="patient-search-input" placeholder="Search patient, label or location...">
                 <div class="new-nodule-control">
                     <input type="checkbox" id="show-starred-only">
                     <label for="show-starred-only">Starred</label>
@@ -988,20 +1054,24 @@
                     <input type="checkbox" id="show-new-nodule-only">
                     <label for="show-new-nodule-only">New Nodules</label>
                 </div>
+                <select id="worklist-label-filter" aria-label="Filter by label">
+                    <option value="">All labels</option>
+                </select>
             </div>
             <div class="data-table-wrapper">
                 <table class="patient-list-table data-table">
                     <thead>
                         <tr>
-                            <th style="width: 50px;">Star</th>
-                            <th>Patient ID</th>
-                            <th>Nodule ID</th>
-                            <th>Location</th>
-                            <th>Total VDT</th>
-                            <th>Total VDT<sub>core</sub></th>
-                            <th>Total VDT<sub>GGO</sub></th>
-                            <th style="width: 30%;">Notes</th>
-                            <th style="width: 130px;">Actions</th>
+                            <th><button class="worklist-sort-btn" data-sort-key="starred">Star <span class="sort-indicator">↕</span></button></th>
+                            <th><button class="worklist-sort-btn" data-sort-key="patientId">Patient ID <span class="sort-indicator">↕</span></button></th>
+                            <th><button class="worklist-sort-btn" data-sort-key="noduleId">Nodule ID <span class="sort-indicator">↕</span></button></th>
+                            <th><button class="worklist-sort-btn" data-sort-key="location">Location <span class="sort-indicator">↕</span></button></th>
+                            <th><button class="worklist-sort-btn" data-sort-key="labels">Labels <span class="sort-indicator">↕</span></button></th>
+                            <th><button class="worklist-sort-btn" data-sort-key="solidVdt">Total VDT <span class="sort-indicator">↕</span></button></th>
+                            <th><button class="worklist-sort-btn" data-sort-key="coreVdt">Total VDT<sub>core</sub> <span class="sort-indicator">↕</span></button></th>
+                            <th><button class="worklist-sort-btn" data-sort-key="ggoVdt">Total VDT<sub>GGO</sub> <span class="sort-indicator">↕</span></button></th>
+                            <th><button class="worklist-sort-btn" data-sort-key="notes">Notes <span class="sort-indicator">↕</span></button></th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="patient-list-body"></tbody>
@@ -1232,6 +1302,12 @@
             const addNoduleBtn = document.getElementById('add-nodule-btn');
             const deleteNoduleBtn = document.getElementById('delete-nodule-btn');
             const noduleLocationInput = document.getElementById('nodule-location');
+            const currentLabelsSummary = document.getElementById('current-labels-summary');
+            const recordLabelsBtn = document.getElementById('record-labels-btn');
+            const labelPicker = document.getElementById('label-picker');
+            const labelPickerList = document.getElementById('label-picker-list');
+            const newLabelInput = document.getElementById('new-label-input');
+            const addLabelBtn = document.getElementById('add-label-btn');
             const screeningLabelMenu = document.getElementById('screening-label-menu');
             const totalResultsContainer = document.getElementById('total-results-container');
             const predictionResultsContainer = document.getElementById('prediction-results-container');
@@ -1259,6 +1335,7 @@
             const showStarredOnlyCheckbox = document.getElementById('show-starred-only');
             const showPositiveOnlyCheckbox = document.getElementById('show-positive-only');
             const showNewNoduleOnlyCheckbox = document.getElementById('show-new-nodule-only');
+            const worklistLabelFilter = document.getElementById('worklist-label-filter');
 
             const versionLogBtn = document.getElementById('version-log-btn');
             const changelogModal = document.getElementById('changelog-modal');
@@ -1270,12 +1347,126 @@
             let tableData = [];
             let volumeChart = null;
             let currentNoduleId = 'Nodule 1';
+            let currentRecordLabels = [];
             let transientNodules = new Map();
             let activeLabelRow = null;
             let activeLabelTrigger = null;
             const STORAGE_PREFIX = 'vdt-calc-';
             const NODULE_SEPARATOR = '::nodule::';
             const DEFAULT_NODULE_ID = 'Nodule 1';
+            const LABEL_LIBRARY_KEY = 'vdt-label-library';
+            const DEFAULT_LABELS = ['Arbitration', 'New nodule', 'Baseline repeat · VDT'];
+            let worklistSort = { key: 'patientId', direction: 'asc' };
+
+            function normalizeLabels(values) {
+                const result = [];
+                (Array.isArray(values) ? values : String(values || '').split('|')).forEach(value => {
+                    const label = String(value || '').trim();
+                    if (label && !result.some(existing => existing.toLowerCase() === label.toLowerCase())) result.push(label);
+                });
+                return result;
+            }
+
+            function loadLabelLibrary() {
+                let saved = [];
+                const savedRaw = localStorage.getItem(LABEL_LIBRARY_KEY);
+                try { saved = savedRaw === null ? DEFAULT_LABELS : JSON.parse(savedRaw || '[]'); } catch (error) { saved = [...DEFAULT_LABELS]; }
+                const attached = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (!key || !key.startsWith(STORAGE_PREFIX)) continue;
+                    try { attached.push(...normalizeLabels(JSON.parse(localStorage.getItem(key))?.labels)); } catch (error) {}
+                }
+                const labels = normalizeLabels([...saved, ...attached]);
+                localStorage.setItem(LABEL_LIBRARY_KEY, JSON.stringify(labels));
+                return labels;
+            }
+
+            function saveLabelLibrary(labels) {
+                localStorage.setItem(LABEL_LIBRARY_KEY, JSON.stringify(normalizeLabels(labels)));
+            }
+
+            function updateLabelsButton() {
+                currentLabelsSummary.innerHTML = '';
+                currentRecordLabels.forEach(label => {
+                    const chip = document.createElement('span');
+                    chip.className = 'current-label-chip';
+                    chip.textContent = label;
+                    currentLabelsSummary.appendChild(chip);
+                });
+                recordLabelsBtn.textContent = '+ Label';
+                recordLabelsBtn.title = currentRecordLabels.join(', ') || 'Add labels';
+            }
+
+            function updateLabelAcrossRecords(oldLabel, newLabel = '') {
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (!key || !key.startsWith(STORAGE_PREFIX)) continue;
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        const labels = normalizeLabels(data.labels).map(label => label.toLowerCase() === oldLabel.toLowerCase() ? newLabel : label);
+                        data.labels = normalizeLabels(labels);
+                        localStorage.setItem(key, JSON.stringify(data));
+                    } catch (error) {}
+                }
+                transientNodules.forEach(record => {
+                    record.labels = normalizeLabels(record.labels).map(label => label.toLowerCase() === oldLabel.toLowerCase() ? newLabel : label);
+                    record.labels = normalizeLabels(record.labels);
+                });
+                currentRecordLabels = normalizeLabels(currentRecordLabels.map(label => label.toLowerCase() === oldLabel.toLowerCase() ? newLabel : label));
+            }
+
+            function renderLabelPicker() {
+                const labels = loadLabelLibrary();
+                labelPickerList.innerHTML = '';
+                labels.forEach(label => {
+                    const row = document.createElement('div');
+                    row.className = 'label-picker-row';
+                    const choice = document.createElement('label');
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = currentRecordLabels.some(value => value.toLowerCase() === label.toLowerCase());
+                    const text = document.createElement('span');
+                    text.textContent = label;
+                    checkbox.addEventListener('change', () => {
+                        currentRecordLabels = checkbox.checked
+                            ? normalizeLabels([...currentRecordLabels, label])
+                            : currentRecordLabels.filter(value => value.toLowerCase() !== label.toLowerCase());
+                        updateLabelsButton();
+                    });
+                    choice.append(checkbox, text);
+                    const edit = document.createElement('button');
+                    edit.type = 'button'; edit.className = 'label-icon-btn'; edit.textContent = '✎'; edit.title = 'Rename label';
+                    edit.addEventListener('click', () => {
+                        const renamed = prompt('Rename label', label)?.trim();
+                        if (!renamed || renamed === label) return;
+                        updateLabelAcrossRecords(label, renamed);
+                        saveLabelLibrary(labels.map(value => value === label ? renamed : value));
+                        renderLabelPicker(); updateLabelsButton();
+                    });
+                    const remove = document.createElement('button');
+                    remove.type = 'button'; remove.className = 'label-icon-btn'; remove.textContent = '×'; remove.title = 'Delete label';
+                    remove.addEventListener('click', () => {
+                        if (!confirm(`Delete label “${label}” from all cases?`)) return;
+                        updateLabelAcrossRecords(label, '');
+                        saveLabelLibrary(labels.filter(value => value !== label));
+                        renderLabelPicker(); updateLabelsButton();
+                    });
+                    row.append(choice, edit, remove);
+                    labelPickerList.appendChild(row);
+                });
+                updateLabelsButton();
+            }
+
+            function addReusableLabel() {
+                const label = newLabelInput.value.trim();
+                if (!label) return;
+                const labels = loadLabelLibrary();
+                if (!labels.some(value => value.toLowerCase() === label.toLowerCase())) saveLabelLibrary([...labels, label]);
+                currentRecordLabels = normalizeLabels([...currentRecordLabels, label]);
+                newLabelInput.value = '';
+                renderLabelPicker();
+            }
             function normalizeNoduleId(value) {
                 return String(value || '').trim() || DEFAULT_NODULE_ID;
             }
@@ -1362,6 +1553,7 @@
             function captureTransientNodule() {
                 transientNodules.set(currentNoduleId, {
                     noduleLocation: noduleLocationInput.value.trim(),
+                    labels: [...currentRecordLabels],
                     tableData: tableData.map(row => ({ ...row })),
                     isLogScale: logScaleCheckbox.checked,
                     isPrediction: predictionCheckbox.checked,
@@ -1374,6 +1566,8 @@
                 if (!data) return;
                 currentNoduleId = noduleId;
                 noduleLocationInput.value = data.noduleLocation || '';
+                currentRecordLabels = normalizeLabels(data.labels);
+                updateLabelsButton();
                 tableData = (data.tableData || []).map(row => ({ ...row }));
                 restoreChartPreferences();
                 projectionHorizonSelect.value = String(VDTCore.normalizeProjectionMonths(data.projectionMonths));
@@ -1761,6 +1955,8 @@
                 currentNoduleId = DEFAULT_NODULE_ID;
                 transientNodules.clear();
                 noduleLocationInput.value = '';
+                currentRecordLabels = [];
+                updateLabelsButton();
                 tableData = [];
                 tableBody.innerHTML = '';
                 restoreChartPreferences();
@@ -2452,8 +2648,31 @@
 
             // --- Export / Import CSV Data Migration ---
 
+            function calculateVdtExportValues(data) {
+                const dated = (data.tableData || [])
+                    .map(row => ({ ...row, dateObj: parseDateString(row.date), solid: parseFloat(row.solid), core: parseFloat(row.core), nonsolid: parseFloat(row.nonsolid) }))
+                    .filter(row => row.dateObj)
+                    .sort((a, b) => a.dateObj - b.dateObj);
+                const byId = new Map();
+                const keys = ['solid', 'core', 'nonsolid'];
+                dated.forEach((scan, index) => {
+                    const values = { solid: '', core: '', nonsolid: '' };
+                    if (index > 0) keys.forEach(type => {
+                        if (!VDTCore.isMeasuredVolume(scan[type])) return;
+                        const previous = dated[index - 1];
+                        const isMax = VDTCore.isNewNoduleType(dated, type) && VDTCore.findFirstMeasuredIndex(dated, type) === index;
+                        const previousVolume = isMax ? 15 : previous[type];
+                        const days = (scan.dateObj - previous.dateObj) / 86400000;
+                        const result = calculateSingleVDT(scan[type], previousVolume, days, isMax);
+                        values[type] = result?.value || '';
+                    });
+                    byId.set(scan.id, values);
+                });
+                return byId;
+            }
+
             function exportAllToCSV() {
-                const rows = [["PatientID", "NoduleID", "NoduleLocation", "Date", "Solid", "SolidCore", "NonSolid", "Baseline", "CustomLabel", "LabelAnchor", "LabelSource", "Notes", "IsStarred", "NewNodule"]];
+                const rows = [["PatientID", "NoduleID", "NoduleLocation", "Labels", "Date", "Solid", "SolidCore", "NonSolid", "VDT", "VDTcore", "VDTGGO", "TotalVDT", "TotalVDTcore", "TotalVDTGGO", "Baseline", "CustomLabel", "LabelAnchor", "LabelSource", "Notes", "IsStarred", "NewNodule"]];
                 let hasData = false;
 
                 for (let i = 0; i < localStorage.length; i++) {
@@ -2463,6 +2682,8 @@
                             const data = JSON.parse(localStorage.getItem(key));
                             if (data && data.tableData) {
                                 const identity = parseStoredIdentity(key, data);
+                                const totals = calculateTotalVdtForPatientData(data);
+                                const intervalVdts = calculateVdtExportValues(data);
                                 data.tableData.forEach(row => {
                                     if (row.date || row.solid || row.core || row.nonsolid) {
                                         hasData = true;
@@ -2470,10 +2691,17 @@
                                             identity.patientId,
                                             identity.noduleId,
                                             data.noduleLocation || '',
+                                            normalizeLabels(data.labels).join('|'),
                                             row.date || '',
                                             row.solid || '',
                                             row.core || '',
                                             row.nonsolid || '',
+                                            intervalVdts.get(row.id)?.solid || '',
+                                            intervalVdts.get(row.id)?.core || '',
+                                            intervalVdts.get(row.id)?.nonsolid || '',
+                                            totals.solidValue || '',
+                                            totals.coreValue || '',
+                                            totals.ggoValue || '',
                                             row.isBaseline || false,
                                             row.customLabel || '',
                                             row.isLabelAnchor || false,
@@ -2533,12 +2761,13 @@
                     const pidIdx = headers.findIndex(h => h.includes('patient'));
                     const noduleIdx = headers.findIndex(h => h === 'noduleid' || h === 'nodule id' || h === 'nodule');
                     const noduleLocationIdx = headers.findIndex(h => h === 'nodulelocation' || h === 'nodule location' || h === 'location');
+                    const tagsIdx = headers.findIndex(h => h === 'labels' || h === 'tags' || h === 'workstream');
                     const dateIdx = headers.findIndex(h => h === 'date' || h.includes('scan date'));
                     const solidIdx = headers.findIndex(h => h === 'solid');
                     const coreIdx = headers.findIndex(h => h === 'core' || h === 'solidcore' || h === 'solid core');
                     const ggoIdx = headers.findIndex(h => h === 'nonsolid' || h === 'non-solid' || h === 'ggo');
                     const baselineIdx = headers.findIndex(h => h.includes('baseline'));
-                    const labelIdx = headers.findIndex(h => h.includes('label') || h.includes('scan #') || h === 'scan');
+                    const labelIdx = headers.findIndex(h => h === 'customlabel' || h === 'custom label' || h === 'scan label' || h.includes('scan #') || h === 'scan');
                     const labelAnchorIdx = headers.findIndex(h => h.includes('labelanchor') || h.includes('label anchor'));
                     const labelSourceIdx = headers.findIndex(h => h.includes('labelsource') || h.includes('label source'));
                     const notesIdx = headers.findIndex(h => h.includes('note'));
@@ -2564,6 +2793,7 @@
                                 patientId: pid,
                                 noduleId,
                                 noduleLocation: noduleLocationIdx !== -1 ? cols[noduleLocationIdx] : '',
+                                labels: tagsIdx !== -1 ? normalizeLabels(cols[tagsIdx]) : [],
                                 tableData: [],
                                 notes: notesIdx !== -1 ? cols[notesIdx] : '',
                                 isStarred: starIdx !== -1 ? cols[starIdx] === 'true' : false,
@@ -2602,6 +2832,7 @@
                             patientId: pid,
                             noduleId,
                             noduleLocation: importedRecord.noduleLocation || existing.noduleLocation || '',
+                            labels: importedRecord.labels?.length ? importedRecord.labels : normalizeLabels(existing.labels),
                             tableData: newTableData,
                             notes: importedRecord.notes || existing.notes || '',
                             isStarred: importedRecord.isStarred !== undefined ? importedRecord.isStarred : (existing.isStarred || false),
@@ -2633,10 +2864,11 @@
 
             // --- Patient Manager Functions ---
             function openPatientManager() {
-                 const searchTerm = patientSearchInput.value.toLowerCase();
+                const searchTerm = patientSearchInput.value.toLowerCase();
                 const showStarredOnly = showStarredOnlyCheckbox.checked;
                 const showPositiveOnly = showPositiveOnlyCheckbox.checked;
                 const showNewNoduleOnly = showNewNoduleOnlyCheckbox.checked;
+                const selectedLabel = worklistLabelFilter.value;
 
                 patientListBody.innerHTML = '';
                 let allPatients = [];
@@ -2658,16 +2890,63 @@
                         } catch (e) {}
                     }
                 }
+
+                const availableLabels = normalizeLabels(allPatients.flatMap(patient => patient.labels || []));
+                worklistLabelFilter.innerHTML = '<option value="">All labels</option>';
+                availableLabels.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })).forEach(label => {
+                    const option = document.createElement('option');
+                    option.value = label;
+                    option.textContent = label;
+                    worklistLabelFilter.appendChild(option);
+                });
+                worklistLabelFilter.value = availableLabels.includes(selectedLabel) ? selectedLabel : '';
+
                 const filteredPatients = allPatients.filter(p => {
-                    const matchesSearch = `${p.id} ${p.noduleId}`.toLowerCase().includes(searchTerm);
+                    const labels = normalizeLabels(p.labels);
+                    const matchesSearch = `${p.id} ${p.noduleId} ${p.noduleLocation || ''} ${labels.join(' ')} ${p.notes || ''}`.toLowerCase().includes(searchTerm);
                     const matchesStar = !showStarredOnly || p.isStarred;
                     const matchesPositive = !showPositiveOnly || p.totals.isPositive;
                     const matchesNewNodule = !showNewNoduleOnly || p.isNewNodule;
-                    return matchesSearch && matchesStar && matchesPositive && matchesNewNodule;
+                    const matchesLabel = !worklistLabelFilter.value || labels.some(label => label.toLowerCase() === worklistLabelFilter.value.toLowerCase());
+                    return matchesSearch && matchesStar && matchesPositive && matchesNewNodule && matchesLabel;
+                });
+
+                const sortValue = patient => {
+                    switch (worklistSort.key) {
+                        case 'starred': return patient.isStarred ? 1 : 0;
+                        case 'noduleId': return patient.noduleId || '';
+                        case 'location': return patient.noduleLocation || '';
+                        case 'labels': return normalizeLabels(patient.labels).join(', ');
+                        case 'solidVdt': return patient.totals.solidNumeric;
+                        case 'coreVdt': return patient.totals.coreNumeric;
+                        case 'ggoVdt': return patient.totals.ggoNumeric;
+                        case 'notes': return patient.notes || '';
+                        default: return patient.id || '';
+                    }
+                };
+                const numericSort = ['starred', 'solidVdt', 'coreVdt', 'ggoVdt'].includes(worklistSort.key);
+                filteredPatients.sort((a, b) => {
+                    let left = sortValue(a), right = sortValue(b);
+                    if (numericSort) {
+                        const leftMissing = left === null || !Number.isFinite(left);
+                        const rightMissing = right === null || !Number.isFinite(right);
+                        if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+                        if (!leftMissing && left !== right) return worklistSort.direction === 'asc' ? left - right : right - left;
+                    } else {
+                        const compared = String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' });
+                        if (compared) return worklistSort.direction === 'asc' ? compared : -compared;
+                    }
+                    return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+                });
+
+                patientManagerModal.querySelectorAll('.worklist-sort-btn').forEach(button => {
+                    button.querySelector('.sort-indicator').textContent = button.dataset.sortKey === worklistSort.key
+                        ? (worklistSort.direction === 'asc' ? '↑' : '↓')
+                        : '↕';
                 });
 
                 if (filteredPatients.length === 0) {
-                    patientListBody.innerHTML = `<tr><td colspan="9">No patient or nodule records found.</td></tr>`;
+                    patientListBody.innerHTML = `<tr><td colspan="10">No patient or nodule records found.</td></tr>`;
                 }
                 filteredPatients.forEach(patient => {
                     const tr = document.createElement('tr');
@@ -2696,6 +2975,18 @@
                     appendTextCell(patient.id);
                     appendTextCell(noduleDisplayLabel(patient.noduleId));
                     appendTextCell(patient.noduleLocation || '—');
+                    const labelsCell = document.createElement('td');
+                    const labelsWrap = document.createElement('div');
+                    labelsWrap.className = 'record-labels';
+                    normalizeLabels(patient.labels).forEach(label => {
+                        const chip = document.createElement('span');
+                        chip.className = 'record-label-chip';
+                        chip.textContent = label;
+                        labelsWrap.appendChild(chip);
+                    });
+                    if (!labelsWrap.childNodes.length) labelsWrap.textContent = '—';
+                    labelsCell.appendChild(labelsWrap);
+                    tr.appendChild(labelsCell);
                     appendResultCell(patient.totals.solidVdtHtml);
                     appendResultCell(patient.totals.coreVdtHtml);
                     appendResultCell(patient.totals.ggoVdtHtml);
@@ -2709,7 +3000,7 @@
                     tr.appendChild(notesCell);
 
                     const actionsCell = document.createElement('td');
-                    actionsCell.className = 'patient-actions';
+                    actionsCell.className = 'worklist-actions';
                     const loadButton = document.createElement('button');
                     loadButton.className = 'control-btn add-row-btn';
                     loadButton.textContent = 'Load';
@@ -2727,7 +3018,7 @@
 
              function calculateTotalVdtForPatientData(patientData) {
                 const { tableData: pTableData } = patientData;
-                const baseReturn = { solidVdtHtml: '-', coreVdtHtml: '-', ggoVdtHtml: '-', isPositive: false };
+                const baseReturn = { solidVdtHtml: '-', coreVdtHtml: '-', ggoVdtHtml: '-', solidValue: null, coreValue: null, ggoValue: null, isPositive: false };
                 if (!pTableData || pTableData.length < 2) return baseReturn;
                 const dataForCalc = pTableData.map(d => ({...d, dateObj: parseDateString(d.date), solid: parseFloat(d.solid), core: parseFloat(d.core), nonsolid: parseFloat(d.nonsolid) })).filter(d => d.dateObj).sort((a, b) => a.dateObj - b.dateObj);
                 if (dataForCalc.length < 2) return baseReturn;
@@ -2769,7 +3060,18 @@
                 const styledCore = formatVdtForManager(coreResult);
                 const styledGgo = formatVdtForManager(ggoResult);
                 const isPositive = (styledSolid.numeric > 0 && styledSolid.numeric <= 400) || (styledCore.numeric > 0 && styledCore.numeric <= 400) || (styledGgo.numeric > 0 && styledGgo.numeric <= 400);
-                return { solidVdtHtml: styledSolid.html, coreVdtHtml: styledCore.html, ggoVdtHtml: styledGgo.html, isPositive: isPositive };
+                return {
+                    solidVdtHtml: styledSolid.html,
+                    coreVdtHtml: styledCore.html,
+                    ggoVdtHtml: styledGgo.html,
+                    solidValue: solidResult?.value || null,
+                    coreValue: coreResult?.value || null,
+                    ggoValue: ggoResult?.value || null,
+                    solidNumeric: styledSolid.numeric,
+                    coreNumeric: styledCore.numeric,
+                    ggoNumeric: styledGgo.numeric,
+                    isPositive
+                };
             }
             function updateStoredPatient(storageKey, updater) {
                 const str = localStorage.getItem(storageKey);
@@ -2811,7 +3113,7 @@
                     .map(scan => ({ ...scan, dateObj: parseDateString(scan.date) }))
                     .filter(scan => scan.dateObj)
                     .sort((a, b) => a.dateObj - b.dateObj);
-                const data = { ...existing, patientId: pid, noduleId, noduleLocation: noduleLocationInput.value.trim(), tableData: tableData, isNewNodule: VDTCore.detectNewNodule(datedScans), isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, projectionMonths: VDTCore.normalizeProjectionMonths(projectionHorizonSelect.value), isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
+                const data = { ...existing, patientId: pid, noduleId, noduleLocation: noduleLocationInput.value.trim(), labels: [...currentRecordLabels], tableData: tableData, isNewNodule: VDTCore.detectNewNodule(datedScans), isLogScale: logScaleCheckbox.checked, isPrediction: predictionCheckbox.checked, projectionMonths: VDTCore.normalizeProjectionMonths(projectionHorizonSelect.value), isNewNoduleFilter: showNewNoduleOnlyCheckbox.checked };
                 try {
                     localStorage.setItem(storageKey, JSON.stringify(data));
                 } catch (error) {
@@ -2836,6 +3138,8 @@
                     patientIdInput.value = id;
                     currentNoduleId = normalizeNoduleId(data.noduleId || targetNoduleId);
                     noduleLocationInput.value = data.noduleLocation || '';
+                    currentRecordLabels = normalizeLabels(data.labels);
+                    updateLabelsButton();
                     tableData = data.tableData || [];
                     restoreChartPreferences();
                     projectionHorizonSelect.value = String(VDTCore.normalizeProjectionMonths(data.projectionMonths));
@@ -2930,6 +3234,27 @@
             showStarredOnlyCheckbox.addEventListener('change', openPatientManager);
             showPositiveOnlyCheckbox.addEventListener('change', openPatientManager);
             showNewNoduleOnlyCheckbox.addEventListener('change', openPatientManager);
+            worklistLabelFilter.addEventListener('change', openPatientManager);
+            patientManagerModal.querySelectorAll('.worklist-sort-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const key = button.dataset.sortKey;
+                    worklistSort = worklistSort.key === key
+                        ? { key, direction: worklistSort.direction === 'asc' ? 'desc' : 'asc' }
+                        : { key, direction: 'asc' };
+                    openPatientManager();
+                });
+            });
+            recordLabelsBtn.addEventListener('click', event => {
+                event.stopPropagation();
+                renderLabelPicker();
+                labelPicker.classList.toggle('hidden');
+                if (!labelPicker.classList.contains('hidden')) newLabelInput.focus();
+            });
+            labelPicker.addEventListener('click', event => event.stopPropagation());
+            addLabelBtn.addEventListener('click', addReusableLabel);
+            newLabelInput.addEventListener('keydown', event => {
+                if (event.key === 'Enter') { event.preventDefault(); addReusableLabel(); }
+            });
             screeningLabelMenu.addEventListener('click', (event) => {
                 const option = event.target.closest('[data-label]');
                 if (!option || !activeLabelRow) return;
@@ -2940,6 +3265,7 @@
             });
             document.addEventListener('click', (event) => {
                 if (!screeningLabelMenu.contains(event.target)) closeScreeningLabelMenu();
+                if (!labelPicker.contains(event.target) && event.target !== recordLabelsBtn) labelPicker.classList.add('hidden');
             });
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') closeScreeningLabelMenu();
@@ -2948,13 +3274,56 @@
             document.addEventListener('mouseover', (e) => { if(e.target.classList.contains('tooltip-icon')) showTooltip(e.target, e.target.dataset.tooltip); });
             document.addEventListener('mouseout', (e) => { if(e.target.classList.contains('tooltip-icon')) hideTooltip(); });
 
+            function ensureLocalTestExample() {
+                const version = new URLSearchParams(window.location.search).get('v') || '';
+                const isLocalTest = ['127.0.0.1', 'localhost'].includes(window.location.hostname) && version.toLowerCase().includes('test');
+                if (!isLocalTest) return null;
+
+                const patientId = '140002061-2 (L2C)';
+                const noduleId = DEFAULT_NODULE_ID;
+                const storageKey = getStorageKey(patientId, noduleId);
+                let existing = null;
+                try { existing = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch (error) {}
+                const hasMeasurements = existing?.tableData?.some(scan =>
+                    scan.date && [scan.solid, scan.core, scan.nonsolid].some(value => String(value || '').trim())
+                );
+                localStorage.removeItem(getStorageKey('LABEL-TEST-001', DEFAULT_NODULE_ID));
+                if (!hasMeasurements) {
+                    localStorage.setItem(storageKey, JSON.stringify({
+                        patientId,
+                        noduleId,
+                        noduleLocation: 'RUL #133',
+                        labels: ['New nodule', 'Arbitration'],
+                        tableData: [
+                            { id: 0, date: '2023-08-04', solid: '', core: '', nonsolid: '', customLabel: 'Baseline', isLabelAnchor: false, labelSource: 'auto' },
+                            { id: 1, date: '2024-08-21', solid: '84.4', core: '10.1', nonsolid: '32.0', customLabel: '1st Annual', isLabelAnchor: true, labelSource: 'manual' },
+                            { id: 2, date: '2024-11-27', solid: '194.0', core: '59.9', nonsolid: '75.0', customLabel: '1st Annual+3m', isLabelAnchor: false, labelSource: 'auto' },
+                            { id: 3, date: '2025-02-26', solid: '504.7', core: '308.5', nonsolid: '180.0', customLabel: '1st Annual+6m', isLabelAnchor: false, labelSource: 'auto' }
+                        ],
+                        notes: 'Test example · labels, VDT sorting and CSV export',
+                        isStarred: true,
+                        isLogScale: true,
+                        isPrediction: true,
+                        projectionMonths: 12
+                    }));
+                }
+                return { patientId, noduleId };
+            }
+
             function initializeEmptyCalculator() {
+                const testExample = ensureLocalTestExample();
                 createTooltip();
                 buildScreeningLabelMenu();
                 restoreChartPreferences();
+                loadLabelLibrary();
+                updateLabelsButton();
                 syncProjectionControls();
-                tableData = []; uniqueRowId = 0; for(let i=0; i<4; i++) addScan();
-                renderNoduleTabs();
+                if (testExample) {
+                    loadData(testExample.patientId, testExample.noduleId);
+                } else {
+                    tableData = []; uniqueRowId = 0; for(let i=0; i<4; i++) addScan();
+                    renderNoduleTabs();
+                }
             }
             initializeEmptyCalculator();
 
