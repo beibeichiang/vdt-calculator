@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vdt-calculator-v3.4.0-label-drift-fix-test';
+const CACHE_NAME = 'vdt-calculator-v3.4.0-labels-worklist-test';
 const APP_SHELL = [
   './',
   './index.html',
