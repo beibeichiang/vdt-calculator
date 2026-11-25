@@ -450,6 +450,13 @@
             text-align: center;
             font-size: 0.75rem;
         }
+        .app-footer a {
+            color: var(--primary-color);
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .app-footer a:hover { text-decoration: underline; }
+        .app-footer-separator { margin: 0 7px; color: #A6AFB8; }
 
         @media (max-width: 820px) {
             body { padding: 12px; }
@@ -1031,7 +1038,12 @@
         </div>
     </div>
 
-    <footer class="app-footer">Decision-support calculation only. Verify source measurements and results before clinical use.</footer>
+    <footer class="app-footer">
+        <span>Decision-support calculation only. Verify source measurements and results before clinical use.</span>
+        <span class="app-footer-separator" aria-hidden="true">·</span>
+        <a href="https://github.com/beibeichiang/vdt-calculator" target="_blank" rel="noopener noreferrer">Source code on GitHub ↗</a>
+        <span> — fork the repository to customize.</span>
+    </footer>
     
     <!-- Patient Manager Modal -->
     <div id="patient-manager-modal" class="modal-overlay hidden">
