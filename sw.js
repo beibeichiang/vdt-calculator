@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vdt-calculator-v3.4.0-labels-worklist-test';
+const CACHE_NAME = 'vdt-calculator-v3.4.0-github-source';
 const APP_SHELL = [
   './',
   './index.html',
